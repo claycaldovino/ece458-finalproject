@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 
         char buf[128];
         char commandFile[64];
-        char *item;
+        char *token;
         int openSlot = 0;
         int i;
 
@@ -41,22 +41,24 @@ int main(int argc, char **argv)
                 return 1;
         }
 
-        strcpy(commandFile, argv[1]);
-        fp = fopen(commandFile,"r");
+        if ((fp = fopen(argv[1],"r")) == NULL)
+        {
+                printf("Could not open file: %s\n", argv[1]);
+                return 1;
+        }
+        
 
         while (fgets(buf,128,fp))
         {
 
-                item = strtok(buf,"\t");
-                strcpy(commandQueue[openSlot].address,item);
+                token = strtok(buf,"\t");
+                strcpy(commandQueue[openSlot].address,token);
 
-                item = strtok(NULL,"\t");
-                strcpy(commandQueue[openSlot].name,item);
+                token = strtok(NULL,"\t");
+                strcpy(commandQueue[openSlot].name,token);
 
-                item = strtok(NULL,"\n");
-                commandQueue[openSlot].age = atoi(item);
-
-                printf("%s\n",commandQueue[openSlot].address);
+                token = strtok(NULL,"\n");
+                commandQueue[openSlot].age = atoi(token);
                 openSlot++;
         }
 
