@@ -9,17 +9,20 @@ struct instruction
 	int age;
 };
 
-struct instruction * store_command(char *string);
-
+struct node
+{
+	struct * node next;
+}
+	
+void store_command (struct instruction **commandQueue, struct node *head, FILE *fp);
 
 int main(int argc, char **argv)
 {	
 	char commandFile[64];
 	char buff[128];
-	char * trimmedCommand;
 	struct instruction *commandQueue[15];
-	int openSlot = 0;
-	
+	int full = 0;
+	struct node * head = NULL;
 	
 	for (int i = 0; i < 15; i++)
 	{
@@ -31,20 +34,15 @@ int main(int argc, char **argv)
 	FILE *fp;
 	
 	fp = fopen(commandFile, "r");
-	while (fgets(buff, 128, (FILE*)fp) != NULL)
+	while (fgets(buff, 128, (FILE*)fp) != NULL && !full)
 	{
 		printf("Line: %s", buff);
-		commandQueue[openSlot] = store_command(buff);
-		openSlot++;
+		store_command(buff);
 	}
 	
-	for (int i = 0; i < openSlot; i++)
+	for (int i = 0; i < 15; i++)
 	{
 		printf ("Data from thing found: %s\n", commandQueue[i]->address);
-	}
-	
-	for (int i = openSlot-1; i >= 0; i--)
-	{
 		free(commandQueue[i]);
 	}
 	
@@ -53,7 +51,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-struct instruction * store_command (char *string)
+void store_command (struct instruction **commandQueue, struct node *head, FILE *fp)
 {
 	struct instruction * commandPTR = malloc(sizeof(struct instruction));
 
@@ -61,6 +59,6 @@ struct instruction * store_command (char *string)
 	
 	strncpy (commandPTR->address, string, 8);
 	
-	return commandPTR;
+	return void;
 }
 
