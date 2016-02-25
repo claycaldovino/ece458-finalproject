@@ -19,7 +19,7 @@ struct Command {
 	int Time_Issued;
 	
 	int Full;
-}
+};
 
 struct DIMM_Status{
 	
@@ -28,5 +28,5 @@ struct DIMM_Status{
 	int Last_Column;
 	
 	char Last_Command[32];	
-}
+};
 
