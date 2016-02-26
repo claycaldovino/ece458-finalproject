@@ -21,18 +21,23 @@ int main(int argc, char **argv)
  
         typedef struct
         {
-        char name[32];
-        char address[32];
-        int age;
+                char Operation[32];
+                unsigned int full_address;
+		unsigned int row;
+		unsigned int bank;
+		unsigned int column;
+                int time_issued;
         } instruction;
 
-        instruction commandQueue[15];
+        instruction Queue[15];  /*Arrays of Structs */
+
+	/* File handler */
         FILE * fp;
 
         char buf[128];
         char commandFile[64];
         char *token;
-        int openSlot = 0;
+        int OpenSlot = 0;
         int i;
 
         if (argc != 2)
@@ -47,29 +52,38 @@ int main(int argc, char **argv)
                 return 1;
         }
         
-
-        while (fgets(buf,128,fp))
+	    while (fgets(buf,128,fp)!=NULL)
         {
+	          token = strtok(buf,"\t"); 
+		               
+	          Queue[OpenSlot].full_address = (unsigned int) strtol(token,NULL,16);
+		
+		/*Break into row, bank and column */
+		Queue[OpenSlot].row = (Queue[OpenSlot].full_address & 0xFFFE0000)>>17;
+		Queue[OpenSlot].bank = (Queue[OpenSlot].full_address & 0x1C000)>>14 ;
+		Queue[OpenSlot].column = (Queue[OpenSlot].full_address & 0x3FF8)>>3;
 
-                token = strtok(buf,"\t");
-                strcpy(commandQueue[openSlot].address,token);
-
-                token = strtok(NULL,"\t");
-                strcpy(commandQueue[openSlot].name,token);
+                token = strtok(NULL,"\t");  /*strtok already contains the string, just point to next string until \t */
+                strcpy(Queue[OpenSlot].Operation,token);
 
                 token = strtok(NULL,"\n");
-                commandQueue[openSlot].age = atoi(token);
-                openSlot++;
+                Queue[OpenSlot].time_issued = atoi(token);
+                OpenSlot++;
         }
 
         fclose(fp);
 
-        for (i=0; i<openSlot; i++) 
+        for (i=0; i<OpenSlot; i++) 
         {
-                printf("slot #%d\n",i);
-                printf("name: %s\n",commandQueue[i].name);
-                printf("address: %s\n",commandQueue[i].address);
-                printf("age: %d\n",commandQueue[i].age);
+                printf("----------------------------------\n");
+                printf("Slot            :%d\n",i);
+                printf("Operation       : %s\n",Queue[i].Operation);
+                printf("Full_Address    : 0x%x\n",Queue[i].full_address);
+		printf("Row             : 0x%x\n",Queue[i].row);
+		printf("Bank            : 0x%x\n",Queue[i].bank);
+		printf("Column          : 0x%x\n",Queue[i].column);
+                printf("Time_Issued     : %d\n",Queue[i].time_issued);
+                printf("-----------------------------------\n");
         }
         return 0;
 
