@@ -44,8 +44,8 @@ typedef struct
 typedef struct
 {
 	instruction to_add;
-	int dirty = 0; /*Initially each array is clean */
-}Queue;
+	int dirty; /*Initially each array is clean */
+} Queue;
 	
 /*========================================================================================*/
 int main(int argc, char **argv)
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 		/* Declare the variables*/
 		/* clock_t gives the CPU clock ticks since the start of the process */
 		global_tick = clock();   	/* Start of the clock cycle*/
-		Queue array[ARRAY_SIZE]  			/*Arrays of Structs */
+		Queue array[ARRAY_SIZE];  	/*Arrays of Structs */
 		temporary temp_buf;			/* This is a temporary buffer to hold next command to enqueue */
 		FILE * fp;					/* File handler */
         char buf[128];				/* Temporary buffer */
@@ -62,6 +62,7 @@ int main(int argc, char **argv)
         char *token;
        	double cpu_ticks_used;
         int i;						/* Loop variable */
+		int total_queue = 0;
 	
 		int head = 0;				/*Head index : The next to execute */
 		int tail = 0;				/*Tail index : This also refers to open slot*/
@@ -79,9 +80,19 @@ int main(int argc, char **argv)
                 printf("Could not open file: %s\n", argv[1]);
                 return -1;
         }
+	
+		/* Initialize the array element as clean */
+		i = 0;
+		while(i < ARRAY_SIZE)
+		{
+			array[i].dirty = 0;  /* All the array elements are unused */
+			++i;
+		}
+		
         /*==================================================================================*/
 	    while (fgets(buf,128,fp)!=NULL)
         {	
+		
 				/*-------------------------------------------------------*/
 				/* Fill the temporary buffer with the content of CPU */
 				token = strtok(buf,"\t");
@@ -97,14 +108,16 @@ int main(int argc, char **argv)
 				tail = tail%ARRAY_SIZE;   			/*when tail = 16, next slot is 0 */
 			
 				if( head==tail && !array[tail].dirty)   
-				{					               
-	         		array[tail].full_address = temp_buf.Address;
+				{		
+					printf("Queue is Empty. Adding to the queue\n");
+					printf("Queue is Not full. %d remaining.\n",ARRAY_SIZE - total_queue-1);
+					array[tail].to_add.full_address = temp_buf.Address;
 					/*Split the address into row, bank and column */
-					array[tail].row = (temp_buf.Address & 0xFFFE0000)>>17;
-					array[tail].bank = (temp_buf.Address & 0x1C000)>>14 ;
-					array[tail].column = (temp_buf.Address & 0x3FF8)>>3;
-	                strcpy(array[tail].Operation,temp_buf.CPU_OP);
-                    array[tail].time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
+					array[tail].to_add.row = (temp_buf.Address & 0xFFFE0000)>>17;
+					array[tail].to_add.bank = (temp_buf.Address & 0x1C000)>>14 ;
+					array[tail].to_add.column = (temp_buf.Address & 0x3FF8)>>3;
+	                strcpy(array[tail].to_add.Operation,temp_buf.CPU_OP);
+                    array[tail].to_add.time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
 				
 					array[tail].dirty = 1;   /*The slot is filled */
 					
@@ -113,14 +126,15 @@ int main(int argc, char **argv)
 			
 				/*CASE 2: Queue is non empty and not completely filled*/
 				else if( head != tail && !array[tail].dirty)   
-				{					               
-	         		array[tail].full_address = temp_buf.Address;
+				{	
+					printf("Queue is Not full. %d remaining.\n",ARRAY_SIZE - total_queue-1);
+	         		array[tail].to_add.full_address = temp_buf.Address;
 					/*Split the address into row, bank and column */
-					array[tail].row = (temp_buf.Address & 0xFFFE0000)>>17;
-					array[tail].bank = (temp_buf.Address & 0x1C000)>>14 ;
-					array[tail].column = (temp_buf.Address & 0x3FF8)>>3;
-	                strcpy(array[tail].Operation,temp_buf.CPU_OP);
-                    array[tail].time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
+					array[tail].to_add.row = (temp_buf.Address & 0xFFFE0000)>>17;
+					array[tail].to_add.bank = (temp_buf.Address & 0x1C000)>>14 ;
+					array[tail].to_add.column = (temp_buf.Address & 0x3FF8)>>3;
+	                strcpy(array[tail].to_add.Operation,temp_buf.CPU_OP);
+                    array[tail].to_add.time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
 				
 					array[tail].dirty = 1;   /*The slot is filled */
 					
@@ -130,27 +144,28 @@ int main(int argc, char **argv)
 				/* CASE 3: Queue is filled */
 				else if (head == tail && array[tail].dirty)
 				{
-					printf("WARNING!! QUEUE is filled.. WAIT!! \n");
+					printf("WARNING!! QUEUE is full. WAIT!! \n");
 					break;
 				}
-					             
+				
+					++total_queue;   /* Update the queue length. */
 		}
 
         fclose(fp);
-
-        for (i=0; i<=tail; i++) 
+/*
+        for (i=0; i<total_queue; i++) 
         {
                 printf("----------------------------------\n");
                 printf("Slot             :%d\n",i);
-                printf("Operation        : %s\n", array[i].Operation);
-                printf("Full_Address     : 0x%x\n",array[i].full_address);
-			    printf("Row              : 0x%x\n",array[i].row);
-				printf("Bank             : 0x%x\n",array[i].bank);
-				printf("Column           : 0x%x\n",array[i].column);
-                printf("Time_Issued      : %lu\n",array[i].time_issued);
+                printf("Operation        : %s\n", array[i].to_add.Operation);
+                printf("Full_Address     : 0x%x\n",array[i].to_add.full_address);
+			    printf("Row              : 0x%x\n",array[i].to_add.row);
+				printf("Bank             : 0x%x\n",array[i].to_add.bank);
+				printf("Column           : 0x%x\n",array[i].to_add.column);
+                printf("Time_Issued      : %lu\n",array[i].to_add.time_issued);
                 printf("-----------------------------------\n");
         }
-	
+*/	
 		//rrent_tick = clock();
 		//u_ticks_used = (double)(current_tick-global_tick);
 		printf("Total clock ticks used: %f \n",(double)(clock())/CLOCKS_PER_SEC);
