@@ -107,10 +107,8 @@ int main(int argc, char **argv)
 			
 				tail = tail%ARRAY_SIZE;   			/*when tail = 16, next slot is 0 */
 			
-				if( head==tail && !array[tail].dirty)   
-				{		
-					printf("Queue is Empty. Adding to the queue\n");
-					printf("Queue is Not full. %d remaining.\n",ARRAY_SIZE - total_queue-1);
+				if(!array[tail].dirty )   
+				{	
 					array[tail].to_add.full_address = temp_buf.Address;
 					/*Split the address into row, bank and column */
 					array[tail].to_add.row = (temp_buf.Address & 0xFFFE0000)>>17;
@@ -120,29 +118,28 @@ int main(int argc, char **argv)
                     array[tail].to_add.time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
 				
 					array[tail].dirty = 1;   /*The slot is filled */
+								/* Update tail pointer */
 					
-					++tail;					/* Update tail pointer */
-				}
-			
-				/*CASE 2: Queue is non empty and not completely filled*/
-				else if( head != tail && !array[tail].dirty)   
-				{	
-					printf("Queue is Not full. %d remaining.\n",ARRAY_SIZE - total_queue-1);
-	         		array[tail].to_add.full_address = temp_buf.Address;
-					/*Split the address into row, bank and column */
-					array[tail].to_add.row = (temp_buf.Address & 0xFFFE0000)>>17;
-					array[tail].to_add.bank = (temp_buf.Address & 0x1C000)>>14 ;
-					array[tail].to_add.column = (temp_buf.Address & 0x3FF8)>>3;
-	                strcpy(array[tail].to_add.Operation,temp_buf.CPU_OP);
-                    array[tail].to_add.time_issued = temp_buf.CPU_clock_cycle ;   /* Copy the time issued */
-				
-					array[tail].dirty = 1;   /*The slot is filled */
+					/* CASE 1: Queue is not full */
+					if (head==tail )
+					{
+						printf("Queue is Empty.  %d remaining slots\n",ARRAY_SIZE - total_queue-1);
+						if((clock()-global_tick)<temp_buf.CPU_clock_cycle)
+						{	printf("Speeding the clock\n");
+							global_tick = array[tail].to_add.time_issued;    /* Speed up the clock*/
+						}
+					}				
 					
-					++tail;					/* Update tail pointer */
+					/*CASE 2: Queue is non-empty and not completely filled*/ 
+					else
+						printf("Queue is Not full. %d remaining slots.\n",ARRAY_SIZE - total_queue-1);
+					
+					++tail;	  /* Update head */
+								  
 				}
-			
+												
 				/* CASE 3: Queue is filled */
-				else if (head == tail && array[tail].dirty)
+				else
 				{
 					printf("WARNING!! QUEUE is full. WAIT!! \n");
 					break;
@@ -151,6 +148,9 @@ int main(int argc, char **argv)
 					++total_queue;   /* Update the queue length. */
 		}
 
+	
+	
+	
         fclose(fp);
 /*
         for (i=0; i<total_queue; i++) 
