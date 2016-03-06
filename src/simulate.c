@@ -19,6 +19,36 @@
 #define tWTR 8
 
 #define ARRAY_SIZE 16
+#define TOTAL_BANKS 8
+#define TOTAL_OPS	
+/* Enumerate Bank info */
+typedef enum bank_info
+{	
+	BANK0,
+	BANK1,
+	BANK2,
+	BANK3,
+	BANK4,
+	BANK5,
+	BANK6,
+	BANK7
+} bank;
+
+/* Enumerate Present Command */
+typedef enum command_info
+{
+	PRE,
+	ACT,
+	RD,
+	BURST,		
+	RDAP,
+	WR,
+	WRAP,
+	REF
+} DRAM_command;
+
+
+
 clock_t global_tick; /*CPU clock tick since main got executed*/
 
 /* Struct to hold the CPU command temporarily */
@@ -51,13 +81,15 @@ typedef struct
 int main(int argc, char **argv)
 {
 		/*===============================================================================*/
-		/* Declare the variables*/
+		/* Declare variables*/
 		/* clock_t gives the CPU clock ticks since the start of the process */
 		global_tick = clock();   	/* Start of the clock cycle*/
 		Queue array[ARRAY_SIZE];  	/*Arrays of Structs */
 		temporary temp_buf;			/* This is a temporary buffer to hold next command to enqueue */
 		FILE * fp;					/* File handler */
-        char buf[128];				/* Temporary buffer */
+		bank bank_no;				/* Variable of enum */
+		DRAM_command command;		/* Variable of enum-DRAM_commands */
+		char buf[128];				/* Temporary buffer */
         char commandFile[64];
         char *token;
        	double cpu_ticks_used;
@@ -66,7 +98,7 @@ int main(int argc, char **argv)
 	
 		int head = 0;				/*Head index : The next to execute */
 		int tail = 0;				/*Tail index : This also refers to open slot*/
-
+		
 		/*================================================================================*/
 		/* Open the file */
         if (argc != 2)
