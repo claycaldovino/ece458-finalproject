@@ -1,0 +1,32 @@
+Project Notes
+********************************************************************************
+
+
+Timing Constraints:
+  tRC    - Time between successive row access to different rows (tRAS + tRP)
+  tRAS   - Time between ACTIVATE command and end of restoration of data in
+             DRAM array
+  tRRD   - ACTIVATE to ACTIVATE command period
+  tRP    - Minimum time between PRECHARGE command and ACTIVATE command
+  tRFC   - Minimum time between REFRESH command and next command
+  tCWL   - Delay between internal WRITE command and start of data
+  tCAS   - Time between READ command and start of data output
+  tRCD   - Minimum time between ACTIVATE command and READ command
+  tWR    - WRITE recovery time
+  tRTP   - Internal READ command to PRECHARGE command delay
+  tCCD   - CAS# to CAS# command delay
+  tBURST - Length of data burst (DDR, so n/2)
+  tWTR   - Delay from internal WRITE transaction to internal READ command
+
+
+
+Commands:
+  ACT  - Bank Activate
+           Used to open (or activate) a row in a particular bank for a
+           subsequent access.
+  PRE  - Single Bank Precharge
+  RD   - Read
+  RDAP - Read with Auto Precharge
+  WR   - Write
+  WRAP - Write with Auto Precharge
+  REF  - Refresh
