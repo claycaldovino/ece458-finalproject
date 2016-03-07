@@ -22,60 +22,104 @@ int prechargePriority(int queueIndex);
 int readPriority(int queueIndex);
 int writePriority(int queueIndex);
 command findNextCommand(int rqIndex);
+void updateDimmStatus(command cmd, unsigned bank, unsigned row);
+bool isCommandLegal(command cmd, unsigned bank, unsigned row);
 
 void policyManager()
 {	
+	int lastCommand = 10;
 	command nextCommand;
+	bool isLegal = TRUE;
 	int lastPriority = -3;
 	int comparePriority = 0;
 	int chosenIndex;
+	int queueIndex;
 	
-	for (int queueIndex = 0; queueIndex < 16; ++queueIndex)
+	for (queueIndex = 0; queueIndex < 16; ++queueIndex)
 	{
 		if (requestQueue[queueIndex].occupied & 
 			!requestQueue[queueIndex].finished)
 		{
 			nextCommand = findNextCommand(queueIndex);
-			switch(nextCommand)
-			{
-				case PRE :
-					comparePriority = prechargePriority(queueIndex);
-					break;
-					
-				case ACT :
-					comparePriority = 2;
-					break;
-				
-				case RD :
-					comparePriority = readPriority(queueIndex);
-					break;
-					
-				case WR :
-					comparePriority = writePriority(queueIndex);
-					break;
-					
-				default :
-				printf("\nThe FUCK Todd!?!?\n");
-			}
 			
-			if (comparePriority > lastPriority)
-			{
-				lastPriority = comparePriority;
-				chosenIndex = queueIndex;
-			}
-			else if (comparePriority == lastPriority)
-			{
-				if (requestQueue[queueIndex].timeIssued > 
-					requestQueue[chosenIndex].timeIssued)
+			isLegal = isCommandLegal(nextCommand, 
+				requestQueue[queueIndex].bank, 
+				requestQueue[queueIndex].row);
+				
+			if (isLegal)
+			{	
+				switch(nextCommand)
 				{
+					case PRE :
+						comparePriority = prechargePriority(queueIndex);
+						break;
+						
+					case ACT :
+						comparePriority = 2;
+						break;
+					
+					case RD :
+						comparePriority = readPriority(queueIndex);
+						break;
+						
+					case WR :
+						comparePriority = writePriority(queueIndex);
+						break;
+						
+					default :
+					printf("\nThe FUCK Todd!?!?\n");
+				}
+				
+				if (comparePriority > lastPriority)
+				{
+					lastPriority = comparePriority;
 					chosenIndex = queueIndex;
+					lastCommand = nextCommand;
+				}
+				else if (comparePriority == lastPriority)
+				{
+					if (requestQueue[queueIndex].timeIssued < 
+						requestQueue[chosenIndex].timeIssued)
+					{
+						chosenIndex = queueIndex;
+						lastCommand = nextCommand;
+					}
 				}
 			}
 		
 		}
 	}
+
+	switch (lastCommand)
+	{
+		case PRE:
+			printf("CPU:XX PRE %d\n", requestQueue[chosenIndex].bank);
+			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+		break;
+		
+		case ACT:
+			printf("CPU:XX ACT %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+		break;
+		
+		case RD:
+			printf("CPU:XX RD %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			requestQueue[chosenIndex].finished = TRUE;
+			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+		break;
+		
+		case WR:
+			printf("CPU:XX WR %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			requestQueue[chosenIndex].finished = TRUE;
+			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+		break;
+			
+		default:
+			printf("Skips this clock cycle -- no legal command.\n");
+		break;
+	}
 	
-	printf("The chosen command: %s \nThe index number: %d \n :The priority level: %d\n", requestQueue[chosenIndex].name, chosenIndex, lastPriority);
+	
 }
 
 int prechargePriority(int queueIndex)
@@ -83,8 +127,9 @@ int prechargePriority(int queueIndex)
 	int bank = requestQueue[queueIndex].bank;
 	int row = dimmStatus[bank].activeRow;
 	int priority = 3;
+	int i;
 	
-	for (int i = 0; i < 16; ++i)
+	for (i = 0; i < 16; ++i)
 	{
 		if (requestQueue[i].occupied && !requestQueue[i].finished)
 		{
@@ -110,8 +155,9 @@ int readPriority(int queueIndex)
 	int col = requestQueue[queueIndex].column;
 	int timestamp = requestQueue[queueIndex].timeIssued;
 	int priority = 4;
+	int i;
 	
-	for (int i = 0; i < 16; ++i)
+	for (i = 0; i < 16; ++i)
 	{
 		if (requestQueue[i].occupied & !requestQueue[i].finished)
 		{
@@ -143,8 +189,9 @@ int writePriority(int queueIndex)
 	int col = requestQueue[queueIndex].column;
 	int timestamp = requestQueue[queueIndex].timeIssued;
 	int priority = 4;
+	int i;
 	
-	for (int i = 0; i < 16; ++i)
+	for (i = 0; i < 16; ++i)
 	{
 		if (requestQueue[i].occupied & !requestQueue[i].finished)
 		{
@@ -221,6 +268,69 @@ command findNextCommand(int rqIndex)
 	}
 }
 
+bool isCommandLegal(command cmd, unsigned bank, unsigned row)
+{
+	bool check = FALSE;
+	int i;
+	
+	switch (cmd)
+	{
+		case PRE:
+			if (commandTimers[bank][ACT] >= tRAS &&
+				commandTimers[bank][RD] >= tRTP &&
+				commandTimers[bank][WR] >= (tWR + tCWL + tBURST))
+				check = TRUE;
+			else
+				check = FALSE;
+			break;
+			
+		case ACT:
+			if (commandTimers[bank][PRE] >= tRP)
+			{			
+				for(i = 0; i < 8; ++i)
+				{
+					if (commandTimers[i][ACT] >= tRRD)
+						check = TRUE;
+					else
+						check = FALSE;
+						break;
+				}
+			}
+			
+			break;
+			
+		case RD:
+			if (commandTimers[bank][ACT] >= tRCD)
+			{
+				for(i = 0; i < 8; ++i)
+				{
+					if (commandTimers[i][RD] >= tCCD &&
+						commandTimers[i][WR] >= (tWTR + tCWL + tBURST))
+						check = TRUE;
+					else
+						check = FALSE;
+				}
+			}
+			
+			break;
+			
+		case WR:
+			if (commandTimers[bank][ACT] >= tRCD)
+			{
+				for(i = 0; i < 8; ++i)
+				{
+					if (commandTimers[i][WR] >= tCCD &&
+						commandTimers[i][RD] >= 12) //PALCEHOLDER
+						check = TRUE;
+					else
+						check = FALSE;
+				}
+			}
+	}
+	
+	return check;
+}
+
 void updateDimmStatus(command cmd, unsigned bank, unsigned row)
 {
 	if (cmd == PRE)
@@ -236,27 +346,52 @@ void updateDimmStatus(command cmd, unsigned bank, unsigned row)
 	}
 } 
 
-
 int main()
 {
-	// Bank 0 start-up condition
-	dimmStatus[0].isPrecharged = FALSE;
-	dimmStatus[0].isActivated  = FALSE;
-	dimmStatus[0].activeRow    = 0x0;
+	int i;
 	
-	// Request for read from adress 0x00000000
-	strcpy(requestQueue[0].name, "READ");
-	requestQueue[0].bank = 0x0;
-	requestQueue[0].row  = 0x0;
+	for (i = 0; i < 16; ++i)
+	{
+		requestQueue[i].occupied = FALSE;
+		requestQueue[i].finished = FALSE;
+	}
 	
-	command cmdBuf;
+	strcpy(requestQueue[2].name, "READ");
+	requestQueue[2].row = 113;
+	requestQueue[2].bank = 1;
+	requestQueue[2].column = 224;
+	requestQueue[2].timeIssued = 512;
+	requestQueue[2].occupied = TRUE;
+	requestQueue[2].finished = FALSE;
+	requestQueue[2].timeRemaining = 0;
 	
-	cmdBuf = findNextCommand(0x0);
-	printf("Should be a PRE (0)\n");
-	printf("Actually is %i\n\n", cmdBuf);
+	strcpy(requestQueue[3].name, "READ");
+	requestQueue[3].row = 156;
+	requestQueue[3].bank = 1;
+	requestQueue[3].column = 111;
+	requestQueue[3].timeIssued = 514;
+	requestQueue[3].occupied = TRUE;
+	requestQueue[3].finished = FALSE;
+	requestQueue[3].timeRemaining = 0;
 	
-	// Bank 0 is precharged
-	dimmStatus[0].isPrecharged = TRUE;
+	strcpy(requestQueue[4].name, "READ");
+	requestQueue[4].row = 113;
+	requestQueue[4].bank = 1;
+	requestQueue[4].column = 696969;
+	requestQueue[4].timeIssued = 515;
+	requestQueue[4].occupied = TRUE;
+	requestQueue[4].finished = FALSE;
+	requestQueue[4].timeRemaining = 0;
+	
+	dimmStatus[1].isPrecharged = FALSE;
+	dimmStatus[1].isActivated = TRUE;
+	dimmStatus[1].activeRow = 113;
+	
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
 	
 	return 0;
 }

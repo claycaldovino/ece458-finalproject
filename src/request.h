@@ -18,6 +18,7 @@ typedef int bool;
 #define tRCD 14
 #define tWR 16
 #define tRTP 8
+#define tCCD 4
 #define tBURST 4
 #define tWTR 8
 
