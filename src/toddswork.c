@@ -1,6 +1,8 @@
 #include "request.h"
 #include <string.h>
 
+unsigned long cpuTime = 0;
+
 const unsigned long long STARVATION_LIMIT = 50;
 
 // Precharge, Activate, Read, Write commands
@@ -24,6 +26,9 @@ int writePriority(int queueIndex);
 command findNextCommand(int rqIndex);
 void updateDimmStatus(command cmd, unsigned bank, unsigned row);
 bool isCommandLegal(command cmd, unsigned bank, unsigned row);
+void initializeTimers();
+void updateTimers(command cmd, unsigned bank);
+void incrementTimers();
 
 void policyManager()
 {	
@@ -95,31 +100,36 @@ void policyManager()
 		case PRE:
 			printf("CPU:XX PRE %d\n", requestQueue[chosenIndex].bank);
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			
 		break;
 		
 		case ACT:
 			printf("CPU:XX ACT %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case RD:
 			printf("CPU:XX RD %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case WR:
 			printf("CPU:XX WR %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 			
 		default:
 			printf("Skips this clock cycle -- no legal command.\n");
+			incrementTimers();
 		break;
 	}
 	
-	
+	cpuTime += 4;
 }
 
 int prechargePriority(int queueIndex)
@@ -346,6 +356,39 @@ void updateDimmStatus(command cmd, unsigned bank, unsigned row)
 	}
 } 
 
+void initializeTimers()
+{
+	int i,j;
+	
+	for (i = 0; i < TOTAL_BANKS; ++i)
+		for (j = 0; j < 4; ++j)
+			commandTimers[i][j] = 200;	
+	
+}
+
+void updateTimers(command cmd, unsigned bank)
+{
+	int i, j;
+	
+	commandTimers[bank][cmd] = 0;
+	
+	for (i = 0; i < TOTAL_BANKS; ++i)
+		for (j = 0; j < 4; ++j)
+			if (commandTimers[i][j] <= 200)
+				commandTimers[i][j] += 1;
+
+}
+
+void incrementTimers()
+{
+	int i, j;
+	
+	for (i = 0; i < TOTAL_BANKS; ++i)
+		for (j = 0; j < 4; ++j)
+			if (commandTimers[i][j] <= 200)
+				commandTimers[i][j] += 1;
+}
+
 int main()
 {
 	int i;
@@ -355,6 +398,8 @@ int main()
 		requestQueue[i].occupied = FALSE;
 		requestQueue[i].finished = FALSE;
 	}
+	
+	initializeTimers();
 	
 	strcpy(requestQueue[2].name, "READ");
 	requestQueue[2].row = 113;
@@ -384,14 +429,66 @@ int main()
 	requestQueue[4].timeRemaining = 0;
 	
 	dimmStatus[1].isPrecharged = FALSE;
-	dimmStatus[1].isActivated = TRUE;
-	dimmStatus[1].activeRow = 113;
+	dimmStatus[1].isActivated = FALSE;
+	dimmStatus[1].activeRow = 0;
 	
 	policyManager();
 	policyManager();
 	policyManager();
 	policyManager();
 	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+
 	
 	return 0;
 }
