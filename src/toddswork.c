@@ -18,6 +18,158 @@ typedef struct
 
 bankStatus dimmStatus[TOTAL_BANKS];
 
+int prechargePriority(int queueIndex);
+int readPriority(int queueIndex);
+int writePriority(int queueIndex);
+command findNextCommand(int rqIndex);
+
+void policyManager()
+{	
+	command nextCommand;
+	int lastPriority = -3;
+	int comparePriority = 0;
+	int chosenIndex;
+	
+	for (int queueIndex = 0; queueIndex < 16; ++queueIndex)
+	{
+		if (requestQueue[queueIndex].occupied & 
+			!requestQueue[queueIndex].finished)
+		{
+			nextCommand = findNextCommand(queueIndex);
+			switch(nextCommand)
+			{
+				case PRE :
+					comparePriority = prechargePriority(queueIndex);
+					break;
+					
+				case ACT :
+					comparePriority = 2;
+					break;
+				
+				case RD :
+					comparePriority = readPriority(queueIndex);
+					break;
+					
+				case WR :
+					comparePriority = writePriority(queueIndex);
+					break;
+					
+				default :
+				printf("\nThe FUCK Todd!?!?\n");
+			}
+			
+			if (comparePriority > lastPriority)
+			{
+				lastPriority = comparePriority;
+				chosenIndex = queueIndex;
+			}
+			else if (comparePriority == lastPriority)
+			{
+				if (requestQueue[queueIndex].timeIssued > 
+					requestQueue[chosenIndex].timeIssued)
+				{
+					chosenIndex = queueIndex;
+				}
+			}
+		
+		}
+	}
+	
+	printf("The chosen command: %s \nThe index number: %d \n :The priority level: %d\n", requestQueue[chosenIndex].name, chosenIndex, lastPriority);
+}
+
+int prechargePriority(int queueIndex)
+{
+	int bank = requestQueue[queueIndex].bank;
+	int row = dimmStatus[bank].activeRow;
+	int priority = 3;
+	
+	for (int i = 0; i < 16; ++i)
+	{
+		if (requestQueue[i].occupied && !requestQueue[i].finished)
+		{
+			if ((requestQueue[i].bank == bank) && (requestQueue[i].row == row))
+			{
+				priority = 0;
+				return priority;
+			}
+			else
+			{
+				priority = 3;
+			}
+		}
+	}
+	
+	return priority;
+}
+
+int readPriority(int queueIndex)
+{
+	int bank = requestQueue[queueIndex].bank;
+	int row = requestQueue[queueIndex].row;
+	int col = requestQueue[queueIndex].column;
+	int timestamp = requestQueue[queueIndex].timeIssued;
+	int priority = 4;
+	
+	for (int i = 0; i < 16; ++i)
+	{
+		if (requestQueue[i].occupied & !requestQueue[i].finished)
+		{
+			if (!strcmp(requestQueue[i].name, "WRITE") &&
+				requestQueue[i].bank == bank &&
+				requestQueue[i].row == row &&
+				requestQueue[i].column == col)	
+			{
+				if (requestQueue[i].timeIssued < timestamp)
+				{
+					priority = -2;
+					return priority;
+				}
+				else
+				{
+					priority = 4;
+				}
+			}
+		}
+	}
+	
+	return priority;
+}
+
+int writePriority(int queueIndex)
+{
+	int bank = requestQueue[queueIndex].bank;
+	int row = requestQueue[queueIndex].row;
+	int col = requestQueue[queueIndex].column;
+	int timestamp = requestQueue[queueIndex].timeIssued;
+	int priority = 4;
+	
+	for (int i = 0; i < 16; ++i)
+	{
+		if (requestQueue[i].occupied & !requestQueue[i].finished)
+		{
+			if ((!strcmp(requestQueue[i].name, "READ") ||
+				!strcmp(requestQueue[i].name, "IFETCH")) &&
+				requestQueue[i].bank == bank &&
+				requestQueue[i].row == row &&
+				requestQueue[i].column == col)	
+			{
+				if (requestQueue[i].timeIssued < timestamp)
+				{
+					priority = -2;
+					return priority;
+				}
+				else
+				{
+					priority = 4;
+				}
+			}
+		}
+	}
+	
+	return priority;
+}
+
 int findStarvation()
 {
 	int i;
