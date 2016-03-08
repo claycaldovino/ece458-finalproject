@@ -1,69 +1,46 @@
 #include "request.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-bool queueFull;
 
+/*===============================================================================*/
 /* fill an array slot if empty */
-bool enqueue(void)
+bool enqueue(int *countSlotsOccupied)
 {
 	int loopVar;
-	/* Check Queue for open slot */
-	loopVar = 0;
-	
-	if(inputBuffer.timeIssued > currentCPUTick)
-		return TRUE;			/* Not ready to enqueue yet */
-	
-	while(loopVar<=ARRAY_SIZE)
-	{
-		if(loopVar==ARRAY_SIZE) /* Loop variable should be 0-15 */
-		{	
-			printf("Queue is full now ! \n");
-			queueFull = TRUE;	/* Queue is full */
-			return TRUE;   /* Queue is full. Do future request for this input buffer.*/
-		}
-		else if(requestQueue[loopVar].occupied == FALSE)
+	for(loopVar = 0; loopVar <ARRAY_SIZE; ++loopVar)
+	{	/* Find an open spot to enqueue */
+		
+		 if(requestQueue[loopVar].occupied == NO)
 		{
-			 /*The last time queue was full. So, set timeIssued to current CPU tick */
-			if(queueFull)
-			{
-				
-				requestQueue[loopVar].timeIssued = currentCPUTick; 
-				queueFull = FALSE;
-			}
-			/* None empty slot found. Copy the contents of the temporary buffer */
+			/*Open slot found. Copy the contents of the temporary buffer */
 		 	strcpy(requestQueue[loopVar].name,inputBuffer.name);
-			requestQueue[loopVar].fullAddress = inputBuffer.fullAddress;
-			requestQueue[loopVar].row = inputBuffer.row;
-			requestQueue[loopVar].column = inputBuffer.column;
-			requestQueue[loopVar].bank= inputBuffer.bank;
-			requestQueue[loopVar].timeIssued = inputBuffer.timeIssued;
-			requestQueue[loopVar].occupied = TRUE;	/* The slot is filled now */
-			printf("LoopVar: %d \n",loopVar);
-			
-			return FALSE;  /* futureRequest= FALSE. Don't request next time */
-			
+			requestQueue[loopVar].fullAddress 	= inputBuffer.fullAddress;
+			requestQueue[loopVar].row		 	= inputBuffer.row;
+			requestQueue[loopVar].column 		= inputBuffer.column;
+			requestQueue[loopVar].bank			= inputBuffer.bank;
+			requestQueue[loopVar].timeIssued 	= inputBuffer.timeIssued;
+			requestQueue[loopVar].timeEnqueued 	= inputBuffer.timeEnqueued;
+			requestQueue[loopVar].occupied 		= YES;	/* The slot is filled now */
+			/* Initialize other struct members */
+			requestQueue[loopVar].finished 		= NO;
+			requestQueue[loopVar].timeRemaining = NO;
+			*countSlotsOccupied  = *countSlotsOccupied +1;	/*Increment counter */
+						
+			return FALSE;  /* futureRequest= FALSE. Reload the buffer with CPU request next time */
 		}
-		else
-			++loopVar;
 	}
 	
-	
+	return TRUE;      /* Enqueu operation failed. so futureRequest = TRUE. */
 }
 /*===================================================================================*/
-/* Fill inputBuffer */
-bool fillInputBuffer(FILE *fp)
+/*  Load the input buffer from the file*/
+bool loadInputBuffer(FILE *fp)
 {
 		char buf[128];							    /* Temporary buffer */
 		char *token;							    /* Token for file read */
 		if(fgets(buf,128,fp)==NULL)
-		{
-			printf("File is empty\n");
-			return TRUE;    /* File is empty */
-		}
+			return TRUE;   							/* File is empty */
 				 
-				/* Get next CPU request */
+		/* Load the next CPU request */
 		else   
 		{
 			/* Fill the temporary buffer with the content of CPU */
@@ -82,15 +59,41 @@ bool fillInputBuffer(FILE *fp)
 			return FALSE;								/* Not the end of the file */
 		}
 }
+
+/*=======================================================================*/
+/* This function checks for a request in the queue that is complete.If the
+	request is completed, it decrements the slots occupied counter, and clears
+	the slot occupied variable */
+
+void examineQueueForCompletion(int * countSlotsOccupied)
+{	
+		int loopVar	= 0;					/* Temporary loop variable */
+
+	/* Remove all the requests  that are completed*/
+		for(loopVar=0; loopVar <ARRAY_SIZE ; ++loopVar)
+		{
+			if(requestQueue[loopVar].occupied && requestQueue[loopVar].finished)
+			{
+					if(requestQueue[loopVar].timeRemaining==FALSE)
+					{
+						requestQueue[loopVar].occupied =FALSE;      /* The slot is open for enqueue */
+						countSlotsOccupied = countSlotsOccupied -1;	/* Decreament the queue counter */
+					}
+					else
+						requestQueue[loopVar].timeRemaining = requestQueue[loopVar].timeRemaining -1;
+			}
+		}
+}
 /*====================================================================*/
 int main(int argc, char **argv)
 {
-	FILE *fp;								    /* File handler */
-	bool endOfFile;							    /* End of file */
-	bool queueEmpty		 = TRUE;				/* Queue is empty intially*/
-	bool futureRequest   = FALSE;				/* Future request */
-	currentCPUTick       = 0;					/* Start of the simulation */
-	int loopVar 	     = 0;					/* Temporary loop variable */
+	FILE *fp;								    	/* File handler */
+	bool endOfFile;							   		/* End of file variable */
+	int countSlotsOccupied	 = 0;					/* Counts the number of requests on the queue*/
+	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
+	currentCPUTick     	  	 = 0;					/* Start of the simulation */
+	int loopVar 	         = 0;					/* Temporary loop variable */
+	bool 
 
 	/*================================================================================*/
 	/* Open the file */
@@ -106,76 +109,68 @@ int main(int argc, char **argv)
          return -1;
      }
 	/*====================================================================================*/
-	/* Initialize the array element as not occupied */
-		 
-		while(loopVar < ARRAY_SIZE)
-		{
-			requestQueue[loopVar].occupied 		= FALSE;  		/* All the array elements are unused */
-			requestQueue[loopVar].finished 		= FALSE;  		/* Nothing is done */
-			requestQueue[loopVar].timeRemaining = FALSE; 		/* No time remaining */
-			++loopVar;
-		}
+	/* This is a big while loop that is exited only when there is no more CPU requests (in other
+	 * words end-of-file reached) and the queue is completely empty */
+	/*===================================================================================*/
 	
-	/*==========================================================================*/
-	/* Keep doing the task, until all done. */
+	/*Examine if there is anything in the file. If nothing is in the file, no more program
+	 * execution needed */
+	endOfFile = loadInputBuffer(fp);
+
 	
-	/* Case 1: First time access the file.Fill the inputBuffer */
-	endOfFile = fillInputBuffer(fp);
-	++currentCPUTick;                     /* One clock tick to add to buffer */
-	
-	while (!endOfFile || !queueEmpty)
+	while (!endOfFile || (countSlotsOccupied =!0))
 	{
 		/*====================================================================*/
-		/* Take the requests from the CPU. Enqueue the requests.*/
-						
-		/* Remove all the requests  that are completed*/
-		for(loopVar=0; loopVar <ARRAY_SIZE ; ++loopVar)
+		while (countSlotsOccupied !=(ARRAY_SIZE-1))   
 		{
-			if(requestQueue[loopVar].occupied && requestQueue[loopVar].finished)
-			{
-					if(requestQueue[loopVar].timeRemaining==FALSE)
-						requestQueue[loopVar].occupied =FALSE;      /* The slot is open for enqueue */
-					else
-						requestQueue[loopVar].timeRemaining = requestQueue[loopVar].timeRemaining -1;
-			}
-		}
 			
-		/*--------------------------------------------------------------------*/		
-	
-		/* Set the Current CPU time to the time of request.*/
-		if(queueEmpty)
-		{
-			if(inputBuffer.timeIssued >currentCPUTick)
-				currentCPUTick =inputBuffer.timeIssued;
-			futureRequest= TRUE;					/*Input Buffer contains data*/
-		}
-		
-		/*-------------------------------------------------------------------*/
-		while ((currentCPUTick %4) != 0)
-		{
-			++currentCPUTick;
-			/*  if there is pending request in the buffer,enqueue it first*/
-			/* CASE 2: Pending request to queue in buffer */
-			if(futureRequest==TRUE) 
-			{	
-				futureRequest = enqueue();	/* Fill the first open slot found */
-										
-			}
-			/* CASE 3: Not the end of file */
-			else if(!endOfFile)
+			/* Check this section again */
+			/*==============================================*/
+			if(futureRequest == YES)
 			{
+				/* CASE 1: Queue is empty */
+				if(countSlotsOccupied == 0)
+				{
+					if(inputBuffer.timeIssued >currentCPUTick)
+						currentCPUTick =inputBuffer.timeIssued;
+				}
 				
-				endOfFile=fillInputBuffer(fp);     /* Fill the temporary buffer */
+				if(inputBuffer.timeIssued > currentCPUTick)
+					break;  		/* It's not yet time to enqueue. So break the loop */
+				
+				futureRequest = enqueue(&countSlotsOccupied);	/* Queue in the first open slot found */
+				if(futureRequest ==YES)
+					break;
+				/* Load another request from the file */
+				endOfFile=loadInputBuffer(fp);     /* Fill the temporary buffer */
 				
 				if(!endOfFile)
-					futureRequest = enqueue();	  	 /* Try to enqueue */
-				;
-			}
-			
-			
+				{
+					if(inputBuffer.timeIssued > currentCPUTick)
+						futureRequest = TRUE;									/* It's not yet time to enqueue. So break the loop */
 					
+					futureRequest = enqueue(&countSlotsOccupied);	  	 /* Try to enqueue */
+				}
+										
+			}
+
+			else if(!endOfFile)
+				{
+					/* Load another request from the file */
+					endOfFile=loadInputBuffer(fp);     /* Fill the temporary buffer */
+				
+					if(inputBuffer.timeIssued > currentCPUTick)
+						futureRequest = TRUE;									/* It's not yet time to enqueue. So break the loop */
+					
+					futureRequest = enqueue(&countSlotsOccupied);	  	 /* Try to enqueue */
+				}
+			/*========================================================*/
 								
 		}
+		
+		/* Call a function to see if any request has been completed */
+		
+		examineQueueForCompletion(&countSlotsOccupied);
 	
 	/* Do the DRAM service */
 		break;

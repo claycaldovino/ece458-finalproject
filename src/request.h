@@ -1,6 +1,13 @@
 typedef int bool;
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+
 #define TRUE 1
 #define FALSE 0
+#define YES 1
+#define NO 0
 
 // DRAM timing constraints
 
@@ -30,10 +37,11 @@ typedef struct
 	unsigned row;
 	unsigned bank;
 	unsigned column;
-	unsigned long long timeIssued;
 	bool occupied;
 	bool finished;
 	unsigned timeRemaining;	
+	unsigned long long timeIssued;
+	unsigned long long timeEnqueued;
 } request;
 
 request inputBuffer;
