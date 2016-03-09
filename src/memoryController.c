@@ -6,6 +6,12 @@
 bool enqueue(int *countSlotsOccupied)
 {
 	int loopVar;
+
+	/* When array is full, update the time of inputbuffer */
+	if(countSlotsOccupied == ARRAY_SIZE-1) /* Array is filled */
+	{
+			inputBuffer.timeEnqueued = currentCPUTick;
+	}
 	for(loopVar = 0; loopVar <ARRAY_SIZE; ++loopVar)
 	{	/* Find an open spot to enqueue */
 		
