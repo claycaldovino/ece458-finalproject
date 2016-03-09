@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
 	currentCPUTick     	  	 = 0;					/* Start of the simulation */
 	int loopVar 	         = 0;					/* Temporary loop variable */
-	bool 
+	
 
 	/*================================================================================*/
 	/* Open the file */
@@ -118,10 +118,10 @@ int main(int argc, char **argv)
 	endOfFile = loadInputBuffer(fp);
 
 	
-	while (!endOfFile || (countSlotsOccupied =!0))
+	while (!endOfFile || (countSlotsOccupied !=0))
 	{
 		/*====================================================================*/
-		while (countSlotsOccupied !=(ARRAY_SIZE-1))   
+		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE-1))   
 		{
 			
 			/* Check this section again */
@@ -139,30 +139,17 @@ int main(int argc, char **argv)
 					break;  		/* It's not yet time to enqueue. So break the loop */
 				
 				futureRequest = enqueue(&countSlotsOccupied);	/* Queue in the first open slot found */
-				if(futureRequest ==YES)
-					break;
-				/* Load another request from the file */
-				endOfFile=loadInputBuffer(fp);     /* Fill the temporary buffer */
-				
-				if(!endOfFile)
-				{
-					if(inputBuffer.timeIssued > currentCPUTick)
-						futureRequest = TRUE;									/* It's not yet time to enqueue. So break the loop */
-					
-					futureRequest = enqueue(&countSlotsOccupied);	  	 /* Try to enqueue */
-				}
-										
 			}
+			
+			/* Load another image from */
 
 			else if(!endOfFile)
 				{
 					/* Load another request from the file */
 					endOfFile=loadInputBuffer(fp);     /* Fill the temporary buffer */
-				
-					if(inputBuffer.timeIssued > currentCPUTick)
-						futureRequest = TRUE;									/* It's not yet time to enqueue. So break the loop */
+					if(!endOfFile)
+						futureRequest = YES;
 					
-					futureRequest = enqueue(&countSlotsOccupied);	  	 /* Try to enqueue */
 				}
 			/*========================================================*/
 								
@@ -173,7 +160,7 @@ int main(int argc, char **argv)
 		examineQueueForCompletion(&countSlotsOccupied);
 	
 	/* Do the DRAM service */
-		break;
+
 		
 	/*=========================================================================*/
 	/* Service the DRAM */
