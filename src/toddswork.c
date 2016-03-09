@@ -51,92 +51,91 @@ void policyManager()
 				requestQueue[queueIndex].bank, 
 				requestQueue[queueIndex].row);
 				
-			if (isLegal)
-			{	
-				switch(nextCommand)
-				{
-					case PRE :
-						comparePriority = prechargePriority(queueIndex);
-						break;
-						
-					case ACT :
-						comparePriority = 2;
-						break;
-					
-					case RD :
-						comparePriority = readPriority(queueIndex);
-						break;
-						
-					case WR :
-						comparePriority = writePriority(queueIndex);
-						break;
-						
-					default :
-					printf("\nThe FUCK Todd!?!?\n");
-				}
+			if (!isLegal)
+				continue;
 				
-				if (comparePriority > lastPriority)
+			switch(nextCommand)
+			{
+				case PRE :
+					comparePriority = prechargePriority(queueIndex);
+					break;
+					
+				case ACT :
+					comparePriority = 2;
+					break;
+				
+				case RD :
+					comparePriority = readPriority(queueIndex);
+					break;
+					
+				case WR :
+					comparePriority = writePriority(queueIndex);
+					break;
+					
+				default :
+				printf("\nThe FUCK Todd!?!?\n");
+			}
+			
+			if (comparePriority > lastPriority)
+			{
+				lastPriority = comparePriority;
+				chosenIndex = queueIndex;
+				lastCommand = nextCommand;
+			}
+			else if (comparePriority == lastPriority)
+			{
+				if (requestQueue[queueIndex].timeIssued < 
+					requestQueue[chosenIndex].timeIssued)
 				{
-					lastPriority = comparePriority;
 					chosenIndex = queueIndex;
 					lastCommand = nextCommand;
 				}
-				else if (comparePriority == lastPriority)
-				{
-					if (requestQueue[queueIndex].timeIssued < 
-						requestQueue[chosenIndex].timeIssued)
-					{
-						chosenIndex = queueIndex;
-						lastCommand = nextCommand;
-					}
-				}
-			}
-		
+			}		
 		}
 	}
 
 	switch (lastCommand)
 	{
 		case PRE:
-			printf("CPU:XX PRE %d\n", requestQueue[chosenIndex].bank);
+			printf("CPU:%lu PRE %d\n", cpuTime, requestQueue[chosenIndex].bank);
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			
+			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case ACT:
-			printf("CPU:XX ACT %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			printf("CPU:%lu ACT %d %d\n", cpuTime, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case RD:
-			printf("CPU:XX RD %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("CPU:%lu RD %d %d\n", cpuTime, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case WR:
-			printf("CPU:XX WR %d %d\n", requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("CPU:%lu WR %d %d\n", cpuTime, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;
 			
 		default:
-			printf("Skips this clock cycle -- no legal command.\n");
+			printf("CPU:%lu ---\n", cpuTime);
 			incrementTimers();
 		break;
 	}
 	
-	cpuTime += 4;
+	cpuTime += 1;
 }
 
 int prechargePriority(int queueIndex)
 {
 	int bank = requestQueue[queueIndex].bank;
 	int row = dimmStatus[bank].activeRow;
-	int priority = 3;
+	int priority = 0;
 	int i;
 	
 	for (i = 0; i < 16; ++i)
@@ -149,9 +148,7 @@ int prechargePriority(int queueIndex)
 				return priority;
 			}
 			else
-			{
 				priority = 3;
-			}
 		}
 	}
 	
@@ -182,9 +179,7 @@ int readPriority(int queueIndex)
 					return priority;
 				}
 				else
-				{
 					priority = 4;
-				}
 			}
 		}
 	}
@@ -302,8 +297,10 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row)
 					if (commandTimers[i][ACT] >= tRRD)
 						check = TRUE;
 					else
+					{
 						check = FALSE;
 						break;
+					}
 				}
 			}
 			
@@ -318,7 +315,10 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row)
 						commandTimers[i][WR] >= (tWTR + tCWL + tBURST))
 						check = TRUE;
 					else
+					{
 						check = FALSE;
+						break;
+					}
 				}
 			}
 			
@@ -374,7 +374,7 @@ void updateTimers(command cmd, unsigned bank)
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] <= 200)
+			if (commandTimers[i][j] < 200)
 				commandTimers[i][j] += 1;
 
 }
@@ -385,7 +385,7 @@ void incrementTimers()
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] <= 200)
+			if (commandTimers[i][j] < 200)
 				commandTimers[i][j] += 1;
 }
 
@@ -419,6 +419,15 @@ int main()
 	requestQueue[3].finished = FALSE;
 	requestQueue[3].timeRemaining = 0;
 	
+	strcpy(requestQueue[5].name, "WRITE");
+	requestQueue[5].row = 156;
+	requestQueue[5].bank = 1;
+	requestQueue[5].column = 111;
+	requestQueue[5].timeIssued = 306;
+	requestQueue[5].occupied = TRUE;
+	requestQueue[5].finished = FALSE;
+	requestQueue[5].timeRemaining = 0;
+	
 	strcpy(requestQueue[4].name, "READ");
 	requestQueue[4].row = 113;
 	requestQueue[4].bank = 1;
@@ -432,6 +441,50 @@ int main()
 	dimmStatus[1].isActivated = FALSE;
 	dimmStatus[1].activeRow = 0;
 	
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
+	policyManager();
 	policyManager();
 	policyManager();
 	policyManager();
