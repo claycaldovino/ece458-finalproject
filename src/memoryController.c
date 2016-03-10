@@ -395,23 +395,20 @@ void incrementTimers()
 
 /*===============================================================================*/
 /* fill an array slot if empty */
-bool enqueue(int *countSlotsOccupied, queue_state *lastQueueStatus)
+bool enqueue(int *countSlotsOccupied)
 {
 	int loopVar;
 
-	
+	/* When array is full, update the time of inputbuffer */
+	if(*countSlotsOccupied == ARRAY_SIZE-1) /* Array is filled */
+	{
+			inputBuffer.timeEnqueued = currentCPUTick;
+	}
 	for(loopVar = 0; loopVar <ARRAY_SIZE; ++loopVar)
 	{	/* Find an open spot to enqueue */
 		
 		 if(requestQueue[loopVar].occupied == NO)
 		{
-
-			/* Check if last queue status was full. If yes, the time  */
-			if(lastQueueStatus==FULL) /* Array was full */
-			{
-				inputBuffer.timeIssued = currentCPUTick;   /* The current enqueue time is updated */
-				lastQueueStatus =NORMAL;    /* Update the flag to normal */
-			}
 			/*Open slot found. Copy the contents of the temporary buffer */
 		 	strcpy(requestQueue[loopVar].name,inputBuffer.name);
 			requestQueue[loopVar].fullAddress 	= inputBuffer.fullAddress;
@@ -419,21 +416,19 @@ bool enqueue(int *countSlotsOccupied, queue_state *lastQueueStatus)
 			requestQueue[loopVar].column 		= inputBuffer.column;
 			requestQueue[loopVar].bank			= inputBuffer.bank;
 			requestQueue[loopVar].timeIssued 	= inputBuffer.timeIssued;
+			requestQueue[loopVar].timeEnqueued 	= inputBuffer.timeEnqueued;
 			requestQueue[loopVar].occupied 		= YES;	/* The slot is filled now */
 			/* Initialize other struct members */
 			requestQueue[loopVar].finished 		= NO;
 			requestQueue[loopVar].timeRemaining = NO;
 			*countSlotsOccupied  = *countSlotsOccupied +1;	/*Increment counter */
-			
-			if(*countSlotsOccupied == ARRAY_SIZE-1)
-				lastQueueStatus = FULL;
 			printf("\n+++Current queue size: %d+++\n", *countSlotsOccupied);
 						
-			return FALSE;  /* bufferFutureRequest= FALSE. Reload the buffer with CPU request next time */
+			return FALSE;  /* futureRequest= FALSE. Reload the buffer with CPU request next time */
 		}
 	}
 	
-	return TRUE;      /* Enqueu operation failed. so bufferFutureRequest = TRUE. */
+	return TRUE;      /* Enqueu operation failed. so futureRequest = TRUE. */
 }
 /*===================================================================================*/
 /*  Load the input buffer from the file*/
@@ -487,7 +482,6 @@ void examineQueueForCompletion(int * countSlotsOccupied)
 						requestQueue[loopVar].occupied = FALSE;      /* The slot is open for enqueue */
 						*countSlotsOccupied = *countSlotsOccupied - 1;	/* Decreament the queue counter */
 						printf("\n---Current queue size: %d---\n", *countSlotsOccupied);
-
 					}
 			}
 		}
@@ -497,17 +491,15 @@ int main(int argc, char **argv)
 {
 	FILE *fp;								    	/* File handler */
 	bool endOfFile;							   		/* End of file variable */
-	bool bufferFutureRequest  	 = FALSE;				/* The CPU request is for future time. Viz."inputBuffer hold-On" */
+	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
 	currentCPUTick     	  	 = 0;					/* Start of the simulation */
-	queue_state lastQueueStatus;						/* Enumerated queue status variable */
+	
 	int i;
 	
-	lastQueueStatus = EMPTY;							/* Initialize current queue status as empty */
 	for (i = 0; i < 16; ++i)
-
 	{
-		requestQueue[i].occupied = NO;
-		requestQueue[i].finished = NO;
+		requestQueue[i].occupied = FALSE;
+		requestQueue[i].finished = FALSE;
 	}
 	
 	initializeTimers();
@@ -533,22 +525,22 @@ int main(int argc, char **argv)
 	/*Examine if there is anything in the file. If nothing is in the file, no more program
 	 * execution needed */
 	endOfFile = loadInputBuffer(fp);
-
 	if(!endOfFile)
-		bufferFutureRequest = YES;
+		futureRequest = YES;
 
 	
-	while (!endOfFile || (lastQueueStatus != EMPTY))
+	while (!endOfFile || (countSlotsOccupied !=0))
 	{
 		/*====================================================================*/
-		while (!endOfFile && (countSlotsOccupied !=(ARRAY_SIZE-1)))  
+		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE))   
 		{
 			
+			/* Check this section again */
 			/*==============================================*/
-			if(bufferFutureRequest == YES)
+			if(futureRequest == YES)
 			{
-				/* CASE 1: Queue was empty */
-				if(lastQueueStatus==EMPTY)
+				/* CASE 1: Queue is empty */
+				if(countSlotsOccupied == 0)
 				{
 					// This will move us off DRAM cycle ticks -- 
 					// needs to be next valid DRAM cycle instead.
@@ -559,7 +551,7 @@ int main(int argc, char **argv)
 				if(inputBuffer.timeIssued > currentCPUTick)
 					break;  		/* It's not yet time to enqueue. So break the loop */
 				
-				bufferFutureRequest = enqueue(&countSlotsOccupied, &lastQueueStatus);	/* Queue in the first open slot found */
+				futureRequest = enqueue(&countSlotsOccupied);	/* Queue in the first open slot found */
 			}
 			
 			/* Load another image from */
@@ -569,7 +561,7 @@ int main(int argc, char **argv)
 					/* Load another request from the file */
 					endOfFile=loadInputBuffer(fp);     /* Fill the temporary buffer */
 					if(!endOfFile)
-						bufferFutureRequest = YES;
+						futureRequest = YES;
 					
 				}
 			/*========================================================*/
@@ -579,9 +571,7 @@ int main(int argc, char **argv)
 		/* Call a function to see if any request has been completed */
 		
 		examineQueueForCompletion(&countSlotsOccupied);
-		
-		if(countSlotsOccupied==0)
-			lastQueueStatus ==EMPTY;
+	
 	/* Do the DRAM service */
 
 	policyManager();
