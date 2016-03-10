@@ -111,6 +111,7 @@ void policyManager()
 		case RD:
 			printf("CPU:%lu RD %d %d\n", cpuTime, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
+			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
 		break;

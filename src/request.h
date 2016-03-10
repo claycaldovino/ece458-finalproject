@@ -3,7 +3,6 @@ typedef int bool;
 #include <stdlib.h>
 #include <string.h>
 
-
 #define TRUE 1
 #define FALSE 0
 #define YES 1
@@ -28,8 +27,6 @@ typedef int bool;
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
 
-
-
 typedef struct
 {
 	char name[32];
@@ -44,7 +41,21 @@ typedef struct
 	unsigned long long timeEnqueued;
 } request;
 
-request inputBuffer;
-request requestQueue[ARRAY_SIZE]; 
+typedef struct
+{
+    bool isPrecharged;
+	bool isActivated;
+	unsigned activeRow;
+} bankStatus;
 
-unsigned long long currentCPUTick;  /* Current CPU tick */
+request inputBuffer;
+request requestQueue[ARRAY_SIZE];
+bankStatus dimmStatus[TOTAL_BANKS];
+
+unsigned long long currentCPUTick = 0;  /* Current CPU tick */
+unsigned STARVATION_LIMIT = 1500;
+int countSlotsOccupied	 = 0;
+
+typedef enum {PRE, ACT, RD, WR} command;
+
+unsigned commandTimers[TOTAL_BANKS][4];
