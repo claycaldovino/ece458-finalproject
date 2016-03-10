@@ -27,6 +27,13 @@ typedef int bool;
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
 
+typedef enum 
+{
+	EMPTY,
+	NORMAL,
+	FULL
+}queue_state;
+
 typedef struct
 {
 	char name[32];
@@ -38,7 +45,6 @@ typedef struct
 	bool finished;
 	unsigned timeRemaining;	
 	unsigned long long timeIssued;
-	unsigned long long timeEnqueued;
 } request;
 
 typedef struct
