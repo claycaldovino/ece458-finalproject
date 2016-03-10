@@ -5,7 +5,7 @@ int readPriority(int queueIndex);
 int writePriority(int queueIndex);
 command findNextCommand(int rqIndex);
 void updateDimmStatus(command cmd, unsigned bank, unsigned row);
-bool isCommandLegal(command cmd, unsigned bank, unsigned row);
+bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index);
 void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
 void incrementTimers();
@@ -25,6 +25,7 @@ void policyManager()
 	if (starveCheck != -1)
 	{
 		printf("Found a starving something\n");
+		printf("--> %s issued at %llu\n", requestQueue[starveCheck].name, requestQueue[starveCheck].timeIssued);
 		chosenIndex = starveCheck;
 		lastCommand = findNextCommand(starveCheck);
 	}
@@ -39,7 +40,8 @@ void policyManager()
 				
 				isLegal = isCommandLegal(nextCommand, 
 					requestQueue[queueIndex].bank, 
-					requestQueue[queueIndex].row);
+					requestQueue[queueIndex].row,
+					queueIndex);
 					
 				if (!isLegal)
 					continue;
@@ -55,11 +57,13 @@ void policyManager()
 						break;
 					
 					case RD :
-						comparePriority = readPriority(queueIndex);
+						comparePriority = 4;
+						// readPriority(queueIndex);
 						break;
 						
 					case WR :
-						comparePriority = writePriority(queueIndex);
+						comparePriority = 4;
+						// writePriority(queueIndex);
 						break;
 						
 					default :
@@ -101,7 +105,7 @@ void policyManager()
 		
 		case RD:
 			printf("\nFinished read issued: %llu\n", requestQueue[chosenIndex].timeIssued);
-			printf("CPU:%llu RD %d %d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("CPU:%llu RD %d %d %d\n", currentCPUTick, requestQueue[chosenIndex].row, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
 			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
@@ -110,7 +114,7 @@ void policyManager()
 		
 		case WR:
 			printf("\nFinished write issued: %llu\n", requestQueue[chosenIndex].timeIssued);		
-			printf("CPU:%llu WR %d %d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("CPU:%llu WR %d %d %d\n", currentCPUTick, requestQueue[chosenIndex].row, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].occupied = FALSE;
 			countSlotsOccupied -= 1;
@@ -151,72 +155,72 @@ int prechargePriority(int queueIndex)
 	return priority;
 }
 
-int readPriority(int queueIndex)
-{
-	int bank = requestQueue[queueIndex].bank;
-	int row = requestQueue[queueIndex].row;
-	int col = requestQueue[queueIndex].column;
-	int timestamp = requestQueue[queueIndex].timeIssued;
-	int priority = 4;
-	int i;
+//int readPriority(int queueIndex)
+//{
+	//int bank = requestQueue[queueIndex].bank;
+	//int row = requestQueue[queueIndex].row;
+	//int col = requestQueue[queueIndex].column;
+	//int timestamp = requestQueue[queueIndex].timeIssued;
+	//int priority = 4;
+	//int i;
 	
-	for (i = 0; i < 16; ++i)
-	{
-		if (requestQueue[i].occupied & !requestQueue[i].finished)
-		{
-			if (!strcmp(requestQueue[i].name, "WRITE") &&
-				requestQueue[i].bank == bank &&
-				requestQueue[i].row == row &&
-				requestQueue[i].column == col)	
-			{
-				if (requestQueue[i].timeIssued < timestamp)
-				{
-					priority = -10;
-					return priority;
-				}
-				else
-					priority = 4;
-			}
-		}
-	}
+	//for (i = 0; i < 16; ++i)
+	//{
+		//if (requestQueue[i].occupied & !requestQueue[i].finished)
+		//{
+			//if (!strcmp(requestQueue[i].name, "WRITE") &&
+				//requestQueue[i].bank == bank &&
+				//requestQueue[i].row == row &&
+				//requestQueue[i].column == col)	
+			//{
+				//if (requestQueue[i].timeIssued < timestamp)
+				//{
+					//priority = -10;
+					//return priority;
+				//}
+				//else
+					//priority = 4;
+			//}
+		//}
+	//}
 	
-	return priority;
-}
+	//return priority;
+//}
 
-int writePriority(int queueIndex)
-{
-	int bank = requestQueue[queueIndex].bank;
-	int row = requestQueue[queueIndex].row;
-	int col = requestQueue[queueIndex].column;
-	int timestamp = requestQueue[queueIndex].timeIssued;
-	int priority = 4;
-	int i;
+//int writePriority(int queueIndex)
+//{
+	//int bank = requestQueue[queueIndex].bank;
+	//int row = requestQueue[queueIndex].row;
+	//int col = requestQueue[queueIndex].column;
+	//int timestamp = requestQueue[queueIndex].timeIssued;
+	//int priority = 4;
+	//int i;
 	
-	for (i = 0; i < 16; ++i)
-	{
-		if (requestQueue[i].occupied & !requestQueue[i].finished)
-		{
-			if ((!strcmp(requestQueue[i].name, "READ") ||
-				!strcmp(requestQueue[i].name, "IFETCH")) &&
-				requestQueue[i].bank == bank &&
-				requestQueue[i].row == row &&
-				requestQueue[i].column == col)	
-			{
-				if (requestQueue[i].timeIssued < timestamp)
-				{
-					priority = -10;
-					return priority;
-				}
-				else
-				{
-					priority = 4;
-				}
-			}
-		}
-	}
+	//for (i = 0; i < 16; ++i)
+	//{
+		//if (requestQueue[i].occupied & !requestQueue[i].finished)
+		//{
+			//if ((!strcmp(requestQueue[i].name, "READ") ||
+				//!strcmp(requestQueue[i].name, "IFETCH")) &&
+				//requestQueue[i].bank == bank &&
+				//requestQueue[i].row == row &&
+				//requestQueue[i].column == col)	
+			//{
+				//if (requestQueue[i].timeIssued < timestamp)
+				//{
+					//priority = -10;
+					//return priority;
+				//}
+				//else
+				//{
+					//priority = 4;
+				//}
+			//}
+		//}
+	//}
 	
-	return priority;
-}
+	//return priority;
+//}
 
 int findStarvation()
 {
@@ -227,14 +231,14 @@ int findStarvation()
 	for (i = 0; i < TOTAL_BANKS; ++i)
 	{
 		if (requestQueue[i].occupied && !requestQueue[i].finished &&
-			isCommandLegal(findNextCommand(i), requestQueue[i].bank, requestQueue[i].row))
+			isCommandLegal(findNextCommand(i), requestQueue[i].bank, requestQueue[i].row, i))
 		{
 			starvationTemp = currentCPUTick - requestQueue[i].timeIssued;
 			
 			if (starvationTemp > STARVATION_LIMIT 
 			    && starvationTemp > starvationAmount)
 			{
-			    printf("Starved %llu cycles\n", starvationTemp);
+			    printf("\nStarved %llu cycles\n", starvationTemp);
 			    starvationAmount = starvationTemp;
 			    mostStarvedRequest = i;
 			}
@@ -274,7 +278,7 @@ command findNextCommand(int rqIndex)
 	}
 }
 
-bool isCommandLegal(command cmd, unsigned bank, unsigned row)
+bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 {
 	bool check = FALSE;
 	int i;
@@ -310,10 +314,32 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row)
 		case RD:
 			if (commandTimers[bank][ACT] >= tRCD)
 			{
+				for (i = 0; i < 16; ++i)
+				{
+					if (requestQueue[i].occupied & !requestQueue[i].finished)
+					{
+						if (!strcmp(requestQueue[i].name, "WRITE") &&
+							requestQueue[i].bank == bank &&
+							requestQueue[i].row == row &&
+							requestQueue[i].column == requestQueue[index].column)	
+						{
+							if (requestQueue[i].timeIssued < requestQueue[index].timeIssued)
+							{	
+								check = FALSE;
+								return check;
+							}
+							else
+							{
+								check = TRUE;
+							}
+						}
+					}
+				}
+				
 				for(i = 0; i < 8; ++i)
 				{
 					if (commandTimers[i][RD] >= tCCD &&
-						commandTimers[i][WR] >= (tWTR + tCWL + tBURST))
+						commandTimers[i][WR] >= tWTR)
 						check = TRUE;
 					else
 					{
@@ -328,15 +354,38 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row)
 		case WR:
 			if (commandTimers[bank][ACT] >= tRCD)
 			{
+				for (i = 0; i < 16; ++i)
+				{
+					if (requestQueue[i].occupied & !requestQueue[i].finished)
+					{
+						if ((!strcmp(requestQueue[i].name, "READ") ||
+							!strcmp(requestQueue[i].name, "IFETCH")) &&
+							requestQueue[i].bank == bank &&
+							requestQueue[i].row == row &&
+							requestQueue[i].column == requestQueue[index].column)	
+						{
+							if (requestQueue[i].timeIssued < requestQueue[index].timeIssued)
+							{	
+								check = FALSE;
+								return check;
+							}
+							else
+							{
+								check = TRUE;
+							}
+						}
+					}
+				}
+				
 				for(i = 0; i < 8; ++i)
 				{
 					if (commandTimers[i][WR] >= tCCD &&
-						commandTimers[i][RD] >= 12) //PALCEHOLDER
+						commandTimers[i][RD] >= tRTW)
 						check = TRUE;
 					else
 					{
 						check = FALSE;
-						break;
+						return check;
 					}
 				}
 			}

@@ -23,6 +23,7 @@ typedef int bool;
 #define tCCD 4
 #define tBURST 4
 #define tWTR 8
+#define tRTW (tCAS + tCCD + 2 - tCWL)
 
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
@@ -53,7 +54,7 @@ request requestQueue[ARRAY_SIZE];
 bankStatus dimmStatus[TOTAL_BANKS];
 
 unsigned long long currentCPUTick = 0;  /* Current CPU tick */
-unsigned STARVATION_LIMIT = 1500;
+unsigned STARVATION_LIMIT = 50;
 int countSlotsOccupied	 = 0;
 
 typedef enum {PRE, ACT, RD, WR} command;
