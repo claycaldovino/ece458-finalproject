@@ -506,6 +506,16 @@ bool loadInputBuffer(FILE *fp)
 			/* Fill the CPU request time */
 			token = strtok(NULL,"\t\n ");
 			inputBuffer.timeIssued = atoi(token);
+
+			/* If the last CPU issue time was less than the current issue time,
+			    there is a error. So, set the time error flag.*/
+			/*==================================================================*/
+			if(lastIssueTime >= inputBuffer.timeIssued && inputBuffer.timeIssued !=0)
+					issueTimeErrorFlag = YES;
+				/* Update the last issue time */
+			else
+				lastIssueTime = inputBuffer.timeIssued;
+			/*====================================================================*/
 			return FALSE;								/* Not the end of the file */
 		}
 }
@@ -581,7 +591,7 @@ int main(int argc, char **argv)
 	while (!endOfFile || (countSlotsOccupied !=0))
 	{
 		/*====================================================================*/
-		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE))   
+		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE)&&!issueTimeErrorFlag)   
 		{
 			
 			/* Check this section again */
@@ -615,6 +625,12 @@ int main(int argc, char **argv)
 				}
 			/*========================================================*/
 								
+		}
+
+		if(issueTimeErrorFlag)
+		{
+			printf("ERROR!! The current request issue time cannot be less than the former issue time!");
+			break;
 		}
 		
 		/* Call a function to see if any request has been completed */

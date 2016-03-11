@@ -60,3 +60,5 @@ int countSlotsOccupied	 = 0;
 typedef enum {PRE, ACT, RD, WR} command;
 
 unsigned commandTimers[TOTAL_BANKS][4];
+unsigned lastIssueTime;
+bool issueTimeErrorFlag;
