@@ -39,7 +39,6 @@ typedef struct
 	bool finished;
 	unsigned timeRemaining;	
 	unsigned long long timeIssued;
-	unsigned long long timeEnqueued;
 } request;
 
 typedef struct
@@ -54,8 +53,10 @@ request requestQueue[ARRAY_SIZE];
 bankStatus dimmStatus[TOTAL_BANKS];
 
 unsigned long long currentCPUTick = 0;  /* Current CPU tick */
-unsigned STARVATION_LIMIT = 50;
+unsigned STARVATION_LIMIT = 200;
 int countSlotsOccupied	 = 0;
+int addCount = 0;
+int addMax = 0;
 
 typedef enum {PRE, ACT, RD, WR} command;
 

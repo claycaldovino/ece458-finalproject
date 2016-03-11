@@ -155,73 +155,6 @@ int prechargePriority(int queueIndex)
 	return priority;
 }
 
-//int readPriority(int queueIndex)
-//{
-	//int bank = requestQueue[queueIndex].bank;
-	//int row = requestQueue[queueIndex].row;
-	//int col = requestQueue[queueIndex].column;
-	//int timestamp = requestQueue[queueIndex].timeIssued;
-	//int priority = 4;
-	//int i;
-	
-	//for (i = 0; i < 16; ++i)
-	//{
-		//if (requestQueue[i].occupied & !requestQueue[i].finished)
-		//{
-			//if (!strcmp(requestQueue[i].name, "WRITE") &&
-				//requestQueue[i].bank == bank &&
-				//requestQueue[i].row == row &&
-				//requestQueue[i].column == col)	
-			//{
-				//if (requestQueue[i].timeIssued < timestamp)
-				//{
-					//priority = -10;
-					//return priority;
-				//}
-				//else
-					//priority = 4;
-			//}
-		//}
-	//}
-	
-	//return priority;
-//}
-
-//int writePriority(int queueIndex)
-//{
-	//int bank = requestQueue[queueIndex].bank;
-	//int row = requestQueue[queueIndex].row;
-	//int col = requestQueue[queueIndex].column;
-	//int timestamp = requestQueue[queueIndex].timeIssued;
-	//int priority = 4;
-	//int i;
-	
-	//for (i = 0; i < 16; ++i)
-	//{
-		//if (requestQueue[i].occupied & !requestQueue[i].finished)
-		//{
-			//if ((!strcmp(requestQueue[i].name, "READ") ||
-				//!strcmp(requestQueue[i].name, "IFETCH")) &&
-				//requestQueue[i].bank == bank &&
-				//requestQueue[i].row == row &&
-				//requestQueue[i].column == col)	
-			//{
-				//if (requestQueue[i].timeIssued < timestamp)
-				//{
-					//priority = -10;
-					//return priority;
-				//}
-				//else
-				//{
-					//priority = 4;
-				//}
-			//}
-		//}
-	//}
-	
-	//return priority;
-//}
-
 int findStarvation()
 {
 	int i;
@@ -448,24 +381,31 @@ bool enqueue(int *countSlotsOccupied)
 {
 	int loopVar;
 
-	/* When array is full, update the time of inputbuffer */
-	if(*countSlotsOccupied == ARRAY_SIZE-1) /* Array is filled */
-	{
-			inputBuffer.timeEnqueued = currentCPUTick;
-	}
+	///* When array is full, update the time of inputbuffer */
+	//if(*countSlotsOccupied == ARRAY_SIZE-1) /* Array is filled */
+	//{
+			//inputBuffer.timeEnqueued = currentCPUTick;
+	//}
+	
 	for(loopVar = 0; loopVar <ARRAY_SIZE; ++loopVar)
 	{	/* Find an open spot to enqueue */
 		
 		 if(requestQueue[loopVar].occupied == NO)
 		{
+			addCount += 1;
+			if (addCount == addMax)
+				requestQueue[loopVar].timeIssued = currentCPUTick;
+			else
+				requestQueue[loopVar].timeIssued = inputBuffer.timeIssued;
+				
+			printf("\nAdded request: %s issued at time: %llu enqueued at time %llu\n", inputBuffer.name, inputBuffer.timeIssued, requestQueue[loopVar].timeIssued);
+			
 			/*Open slot found. Copy the contents of the temporary buffer */
 		 	strcpy(requestQueue[loopVar].name,inputBuffer.name);
 			requestQueue[loopVar].fullAddress 	= inputBuffer.fullAddress;
 			requestQueue[loopVar].row		 	= inputBuffer.row;
 			requestQueue[loopVar].column 		= inputBuffer.column;
 			requestQueue[loopVar].bank			= inputBuffer.bank;
-			requestQueue[loopVar].timeIssued 	= inputBuffer.timeIssued;
-			requestQueue[loopVar].timeEnqueued 	= inputBuffer.timeEnqueued;
 			requestQueue[loopVar].occupied 		= YES;	/* The slot is filled now */
 			/* Initialize other struct members */
 			requestQueue[loopVar].finished 		= NO;
@@ -505,7 +445,7 @@ bool loadInputBuffer(FILE *fp)
 			strcpy(inputBuffer.name,token);
 			/* Fill the CPU request time */
 			token = strtok(NULL,"\t\n ");
-			inputBuffer.timeIssued = atoi(token);
+			inputBuffer.timeIssued = (unsigned long long) strtoll(token, NULL, 10);
 			return FALSE;								/* Not the end of the file */
 		}
 }
@@ -542,6 +482,7 @@ int main(int argc, char **argv)
 	bool endOfFile;							   		/* End of file variable */
 	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
 	currentCPUTick     	  	 = 0;					/* Start of the simulation */
+	
 	
 	int i;
 	
@@ -580,6 +521,14 @@ int main(int argc, char **argv)
 	
 	while (!endOfFile || (countSlotsOccupied !=0))
 	{
+		
+		addMax = ARRAY_SIZE - countSlotsOccupied + 1;
+		addCount = 0;
+		
+		/* Call a function to see if any request has been completed */
+		
+		examineQueueForCompletion(&countSlotsOccupied);
+		
 		/*====================================================================*/
 		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE))   
 		{
@@ -594,7 +543,7 @@ int main(int argc, char **argv)
 					// This will move us off DRAM cycle ticks -- 
 					// needs to be next valid DRAM cycle instead.
 					if(inputBuffer.timeIssued >currentCPUTick)
-						currentCPUTick =inputBuffer.timeIssued;
+						currentCPUTick = inputBuffer.timeIssued + (4 - inputBuffer.timeIssued % 4);
 				}
 				
 				if(inputBuffer.timeIssued > currentCPUTick)
@@ -616,19 +565,15 @@ int main(int argc, char **argv)
 			/*========================================================*/
 								
 		}
-		
-		/* Call a function to see if any request has been completed */
-		
-		examineQueueForCompletion(&countSlotsOccupied);
 	
 	/* Do the DRAM service */
 
-	policyManager();
+		policyManager();
 		
 	/*=========================================================================*/
 	/* Service the DRAM */
 	
-	currentCPUTick += 4;
+		currentCPUTick += 4;
 
 	}  
 	/*========================================================================*/
