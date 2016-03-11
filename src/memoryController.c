@@ -445,7 +445,6 @@ bool loadInputBuffer(FILE *fp)
 			strcpy(inputBuffer.name,token);
 			/* Fill the CPU request time */
 			token = strtok(NULL,"\t\n ");
-<<<<<<< HEAD
 			inputBuffer.timeIssued = atoi(token);
 
 			/* If the last CPU issue time was less than the current issue time,
@@ -457,9 +456,7 @@ bool loadInputBuffer(FILE *fp)
 			else
 				lastIssueTime = inputBuffer.timeIssued;
 			/*====================================================================*/
-=======
 			inputBuffer.timeIssued = (unsigned long long) strtoll(token, NULL, 10);
->>>>>>> c92af6842228d7a96b6d3aca4f2495491d7fe53c
 			return FALSE;								/* Not the end of the file */
 		}
 }
@@ -579,7 +576,6 @@ int main(int argc, char **argv)
 			/*========================================================*/
 								
 		}
-<<<<<<< HEAD
 
 		if(issueTimeErrorFlag)
 		{
@@ -590,8 +586,6 @@ int main(int argc, char **argv)
 		/* Call a function to see if any request has been completed */
 		
 		examineQueueForCompletion(&countSlotsOccupied);
-=======
->>>>>>> c92af6842228d7a96b6d3aca4f2495491d7fe53c
 	
 	/* Do the DRAM service */
 
