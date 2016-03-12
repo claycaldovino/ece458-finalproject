@@ -5,7 +5,7 @@ int readPriority(int queueIndex);
 int writePriority(int queueIndex);
 command findNextCommand(int rqIndex);
 void updateDimmStatus(command cmd, unsigned bank, unsigned row);
-bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index);
+bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool starvedCommand);
 void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
 void incrementTimers();
@@ -13,10 +13,10 @@ int findStarvation();
 
 void policyManager()
 {	
-	int lastCommand = 10;
+	command chosenCommand = WAIT;
 	command nextCommand;
 	bool isLegal = TRUE;
-	int lastPriority = -2;
+	int chosenPriority = -2;
 	int comparePriority = 0;
 	int chosenIndex;
 	int queueIndex;
@@ -27,80 +27,97 @@ void policyManager()
 		printf("Found a starving something\n");
 		printf("--> %s issued at %llu\n", requestQueue[starveCheck].name, requestQueue[starveCheck].timeIssued);
 		chosenIndex = starveCheck;
-		lastCommand = findNextCommand(starveCheck);
+		chosenCommand = findNextCommand(starveCheck);
+		chosenPriority = 10;
+		
+		starvationStatus.isCommandStarving = TRUE;
+		starvationStatus.name = chosenCommand;
+		starvationStatus.bank = requestQueue[chosenIndex].bank;
+		starvationStatus.lowerWindow  
+		starvationStatus.upperWindow
+		
+		if (!isCommandLegal(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row, chosenIndex, TRUE))
+			{
+				chosenCommand = WAIT;
+				chosenPriority = -1;
+			}
 	}
 	else
 	{
-		for (queueIndex = 0; queueIndex < 16; ++queueIndex)
+		starvationStatus.isCommandStarving = FALSE;
+	}
+	
+	for (queueIndex = 0; queueIndex < 16; ++queueIndex)
+	{
+		if (requestQueue[queueIndex].occupied && 
+			!requestQueue[queueIndex].finished && 
+			queueIndex != starveCheck)
 		{
-			if (requestQueue[queueIndex].occupied & 
-				!requestQueue[queueIndex].finished)
+			nextCommand = findNextCommand(queueIndex);
+			
+			isLegal = isCommandLegal(nextCommand, 
+				requestQueue[queueIndex].bank, 
+				requestQueue[queueIndex].row,
+				queueIndex, FALSE);
+				
+			if (!isLegal)
+				continue;
+				
+			switch(nextCommand)
 			{
-				nextCommand = findNextCommand(queueIndex);
+				case PRE :
+					comparePriority = prechargePriority(queueIndex);
+					break;
+					
+				case ACT :
+					comparePriority = 2;
+					break;
 				
-				isLegal = isCommandLegal(nextCommand, 
-					requestQueue[queueIndex].bank, 
-					requestQueue[queueIndex].row,
-					queueIndex);
+				case RD :
+					comparePriority = 4;
+					break;
 					
-				if (!isLegal)
-					continue;
+				case WR :
+					comparePriority = 4;
+					break;
 					
-				switch(nextCommand)
-				{
-					case PRE :
-						comparePriority = prechargePriority(queueIndex);
-						break;
-						
-					case ACT :
-						comparePriority = 2;
-						break;
+				case WAIT:
+					comparePriority = -1;
 					
-					case RD :
-						comparePriority = 4;
-						// readPriority(queueIndex);
-						break;
-						
-					case WR :
-						comparePriority = 4;
-						// writePriority(queueIndex);
-						break;
-						
-					default :
-					printf("\nThe FUCK Todd!?!?\n");
-				}
-				
-				if (comparePriority > lastPriority)
-				{
-					lastPriority = comparePriority;
-					chosenIndex = queueIndex;
-					lastCommand = nextCommand;
-				}
-				else if (comparePriority == lastPriority)
-				{
-					if (requestQueue[queueIndex].timeIssued < 
-						requestQueue[chosenIndex].timeIssued)
-					{
-						chosenIndex = queueIndex;
-						lastCommand = nextCommand;
-					}
-				}		
+				default :
+				printf("\nERROR: Unknown Command\n");
 			}
+			
+			if (comparePriority > chosenPriority)
+			{
+				chosenPriority = comparePriority;
+				chosenIndex = queueIndex;
+				chosenCommand = nextCommand;
+			}
+			else if (comparePriority == chosenPriority)
+			{
+				if (requestQueue[queueIndex].timeIssued < 
+					requestQueue[chosenIndex].timeIssued)
+				{
+					chosenIndex = queueIndex;
+					chosenCommand = nextCommand;
+				}
+			}		
 		}
 	}
 	
-	switch (lastCommand)
+	switch (chosenCommand)
 	{
 		case PRE:
 			printf("CPU:%llu PRE %d\n", currentCPUTick, requestQueue[chosenIndex].bank);
-			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
+			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case ACT:
 			printf("CPU:%llu ACT %d %d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
+			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case RD:
@@ -108,8 +125,8 @@ void policyManager()
 			printf("CPU:%llu RD %d %d %d\n", currentCPUTick, requestQueue[chosenIndex].row, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
-			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
+			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case WR:
@@ -119,8 +136,8 @@ void policyManager()
 			requestQueue[chosenIndex].occupied = FALSE;
 			countSlotsOccupied -= 1;
 			printf("\n---Current queue size: %d---\n", countSlotsOccupied);
-			updateDimmStatus(lastCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
-			updateTimers(lastCommand, requestQueue[chosenIndex].bank);
+			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 			
 		default:
@@ -163,8 +180,8 @@ int findStarvation()
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 	{
-		if (requestQueue[i].occupied && !requestQueue[i].finished &&
-			isCommandLegal(findNextCommand(i), requestQueue[i].bank, requestQueue[i].row, i))
+		if (requestQueue[i].occupied && !requestQueue[i].finished) // &&
+			//isCommandLegal(findNextCommand(i), requestQueue[i].bank, requestQueue[i].row, i))
 		{
 			starvationTemp = currentCPUTick - requestQueue[i].timeIssued;
 			
@@ -211,10 +228,14 @@ command findNextCommand(int rqIndex)
 	}
 }
 
-bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
+bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool starvedCommand)
 {
 	bool check = FALSE;
 	int i;
+	
+	if (starvationStatus.isCommandStarving && starvedCommand == FALSE)
+		if (bank == starvationStatus.bank)
+			return FALSE;
 	
 	switch (cmd)
 	{
@@ -242,10 +263,13 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 				}
 			}
 			
+			if 
+			
 			break;
 			
 		case RD:
-			if (commandTimers[bank][ACT] >= tRCD)
+			if (commandTimers[bank][ACT] >= tRCD &&
+				commandTimers[bank][WR] >= tWTR)
 			{
 				for (i = 0; i < 16; ++i)
 				{
@@ -271,8 +295,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 				
 				for(i = 0; i < 8; ++i)
 				{
-					if (commandTimers[i][RD] >= tCCD &&
-						commandTimers[i][WR] >= tWTR)
+					if (commandTimers[i][RD] >= tBURST)
 						check = TRUE;
 					else
 					{
@@ -285,7 +308,8 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 			break;
 			
 		case WR:
-			if (commandTimers[bank][ACT] >= tRCD)
+			if (commandTimers[bank][ACT] >= tRCD &&
+				commandTimers[bank][RD] >= tRTW)
 			{
 				for (i = 0; i < 16; ++i)
 				{
@@ -312,8 +336,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 				
 				for(i = 0; i < 8; ++i)
 				{
-					if (commandTimers[i][WR] >= tCCD &&
-						commandTimers[i][RD] >= tRTW)
+					if (commandTimers[i][RD] >= tCAS - tCWL + tBURST)
 						check = TRUE;
 					else
 					{
@@ -322,6 +345,10 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index)
 					}
 				}
 			}
+			break;
+			
+		default:
+		printf("Command ERROR!\n");
 	}
 	
 	return check;

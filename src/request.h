@@ -28,6 +28,8 @@ typedef int bool;
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
 
+typedef enum {PRE, ACT, RD, WR, WAIT} command;
+
 typedef struct
 {
 	char name[32];
@@ -48,17 +50,25 @@ typedef struct
 	unsigned activeRow;
 } bankStatus;
 
+typedef struct
+{
+	bool isCommandStarving;
+	unsigned long long lowerWindow;
+	unsigned long long upperWindow;
+	command name;
+	int bank;
+} starveStruct;
+
 request inputBuffer;
 request requestQueue[ARRAY_SIZE];
 bankStatus dimmStatus[TOTAL_BANKS];
+starveStruct starvationStatus; 
 
 unsigned long long currentCPUTick = 0;  /* Current CPU tick */
 unsigned STARVATION_LIMIT = 200;
 int countSlotsOccupied	 = 0;
 int addCount = 0;
 int addMax = 0;
-
-typedef enum {PRE, ACT, RD, WR} command;
 
 unsigned commandTimers[TOTAL_BANKS][4];
 unsigned lastIssueTime;
