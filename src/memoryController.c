@@ -6,6 +6,7 @@ int writePriority(int queueIndex);
 command findNextCommand(int rqIndex);
 void updateDimmStatus(command cmd, unsigned bank, unsigned row);
 bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool starvedCommand);
+int calculateWindow(const command cmd, const unsigned bank, unsigned long long *lower, unsigned long long *upper);
 void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
 void incrementTimers();
@@ -24,7 +25,6 @@ void policyManager()
 	int starveCheck = findStarvation();
 	if (starveCheck != -1)
 	{
-		printf("Found a starving something\n");
 		printf("--> %s issued at %llu\n", requestQueue[starveCheck].name, requestQueue[starveCheck].timeIssued);
 		chosenIndex = starveCheck;
 		chosenCommand = findNextCommand(starveCheck);
@@ -33,14 +33,16 @@ void policyManager()
 		starvationStatus.isCommandStarving = TRUE;
 		starvationStatus.name = chosenCommand;
 		starvationStatus.bank = requestQueue[chosenIndex].bank;
-		starvationStatus.lowerWindow  
-		starvationStatus.upperWindow
+		
+		calculateWindow(starvationStatus.name, starvationStatus.bank, &starvationStatus.lowerWindow, &starvationStatus.upperWindow);
+		
+		printf("Lower: %llu\nUpper: %llu\n", starvationStatus.lowerWindow, starvationStatus.upperWindow);
 		
 		if (!isCommandLegal(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row, chosenIndex, TRUE))
-			{
-				chosenCommand = WAIT;
-				chosenPriority = -1;
-			}
+		{
+			chosenCommand = WAIT;
+			chosenPriority = -1;
+		}
 	}
 	else
 	{
@@ -135,7 +137,6 @@ void policyManager()
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].occupied = FALSE;
 			countSlotsOccupied -= 1;
-			printf("\n---Current queue size: %d---\n", countSlotsOccupied);
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
@@ -172,6 +173,137 @@ int prechargePriority(int queueIndex)
 	return priority;
 }
 
+int calculateWindow(const command cmd, const unsigned bank, unsigned long long *lower, unsigned long long *upper)
+{
+	unsigned long long temp1 = 0;
+	unsigned long long temp2 = 0;
+	unsigned long long temp3 = 0;
+	int loopCheck;
+	int i;
+	
+	switch (cmd)
+	{
+		case PRE:
+			return 0;
+			
+		case ACT:
+			for(i=0; i < 8; ++i)
+			{
+				loopCheck = (tRRD - commandTimers[i][ACT]) * 4;
+				if (loopCheck > 0 && loopCheck > temp1)
+				{
+					temp1 = loopCheck;
+				}
+			}
+			
+			temp1 = temp1 + currentCPUTick;			
+			
+			if (tRP - commandTimers[bank][cmd] > 0)
+				temp2 = currentCPUTick + ((tRP - commandTimers[bank][cmd]) * 4);
+				
+			if (temp1 > temp2)
+				*upper = temp1;
+			else
+				*upper = temp2;
+				
+			*lower = *upper - ((tRRD - 1) * 4);
+			return 0;
+		
+		case RD :
+			for(i=0; i < 8; ++i)
+			{
+				loopCheck = (tBURST - commandTimers[i][RD]) * 4;
+				if (loopCheck > 0 && loopCheck > temp1)
+				{
+					temp1 = loopCheck;
+				}
+			}
+			
+			temp1 = temp1 + currentCPUTick;
+			
+			if (tRCD - commandTimers[bank][ACT] > 0)
+				temp2 = currentCPUTick + ((tRCD - commandTimers[bank][ACT]) * 4);
+			
+			if (tWTR - commandTimers[bank][WR] > 0)
+				temp3 = currentCPUTick + ((tWTR - commandTimers[bank][WR]) * 4);
+				
+			if (temp1 > temp2)
+			{
+				if (temp1 > temp3)
+					*upper = temp1;
+				else
+					*upper = temp3;
+			}
+			else
+			{
+				if (temp2 > temp3)
+					*upper = temp2;
+				else
+					*upper = temp3;
+			}
+			
+			*lower = *upper - (tBURST * 4);
+			
+			return 0;
+		
+		case WR :
+			for(i=0; i < 8; ++i)
+			{
+				loopCheck = (tBURST - commandTimers[i][WR]) * 4;
+				if (loopCheck > 0 && loopCheck > temp1)
+				{
+					temp1 = loopCheck;
+				}
+			}
+			
+			temp1 = temp1 + currentCPUTick;
+			
+			for(i=0; i < 8; ++i)
+			{
+				loopCheck = ((tCAS - tCWL + tBURST) - commandTimers[i][RD]) * 4;
+				if (loopCheck > 0 && loopCheck > temp1)
+				{
+					temp2 = loopCheck;
+				}
+			}
+			
+			temp2 = temp2 + currentCPUTick;
+			
+			if (temp1 < temp2)
+				temp1 = temp2;
+			
+			
+			if (tRCD - commandTimers[bank][ACT] > 0)
+				temp2 = currentCPUTick + ((tRCD - commandTimers[bank][ACT]) * 4);
+			else
+				temp2 = currentCPUTick;
+				
+			if (temp1 < temp2)
+				temp1 = temp2;
+					
+								
+			if (tRTW - commandTimers[bank][RD] > 0)
+				temp2 = currentCPUTick + ((tRTW - commandTimers[bank][RD]) * 4);
+			else
+				temp2 = currentCPUTick;
+				
+								
+			if (temp1 > temp2)
+				*upper = temp1;
+			else
+				*upper = temp2;
+			
+			*lower = *upper - ((tCAS - tCWL + tBURST) * 4);
+			return 0;
+			
+		default :
+			printf("calculateWindow error: invalid input command\n");
+			return -1;
+	
+	}
+
+}
+
 int findStarvation()
 {
 	int i;
@@ -188,12 +320,13 @@ int findStarvation()
 			if (starvationTemp > STARVATION_LIMIT 
 			    && starvationTemp > starvationAmount)
 			{
-			    printf("\nStarved %llu cycles\n", starvationTemp);
 			    starvationAmount = starvationTemp;
 			    mostStarvedRequest = i;
 			}
 		}
 	}
+	if(starvationAmount)
+		printf("\nStarved %llu CPU cycles\n", starvationAmount);
 	return mostStarvedRequest;
 }
 
@@ -258,13 +391,26 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 					else
 					{
 						check = FALSE;
-						break;
+						return check;
 					}
 				}
 			}
 			
-			if 
-			
+			if (starvationStatus.isCommandStarving == TRUE && starvedCommand == FALSE)
+			{
+				if (starvationStatus.name == ACT)
+				{
+					if (currentCPUTick >= starvationStatus.lowerWindow &&
+						currentCPUTick <= starvationStatus.upperWindow)
+					{
+						check = FALSE;
+						return check;
+					}
+					else
+						check = TRUE;
+				}
+			}
+						
 			break;
 			
 		case RD:
@@ -300,7 +446,34 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 					else
 					{
 						check = FALSE;
-						break;
+						return check;
+					}
+				}
+			
+				if (starvationStatus.isCommandStarving == TRUE && starvedCommand == FALSE)
+				{
+					if (starvationStatus.name == RD)
+					{
+						if (currentCPUTick >= starvationStatus.lowerWindow &&
+							currentCPUTick <= starvationStatus.upperWindow)
+						{
+							check = FALSE;
+							return check;
+						}
+						else
+							check = TRUE;
+					}
+					
+					else if (starvationStatus.name == WR)
+					{
+						if (currentCPUTick >= starvationStatus.lowerWindow &&
+							currentCPUTick <= starvationStatus.upperWindow)
+						{
+							check = FALSE;
+							return check;
+						}
+						else
+							check = TRUE;
 					}
 				}
 			}
@@ -344,11 +517,27 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 						return check;
 					}
 				}
+				
+				if (starvationStatus.isCommandStarving == TRUE && starvedCommand == FALSE)
+				{
+					if (starvationStatus.name == WR)
+					{
+						if (currentCPUTick >= (starvationStatus.upperWindow - (tBURST * 4)) &&
+							currentCPUTick <= starvationStatus.upperWindow)
+						{
+							check = FALSE;
+							return check;
+						}
+						else
+							check = TRUE;
+					}
+				}	
+				
 			}
 			break;
 			
 		default:
-		printf("Command ERROR!\n");
+			printf("Command ERROR!\n");
 	}
 	
 	return check;
@@ -404,9 +593,10 @@ void incrementTimers()
 
 /*===============================================================================*/
 /* fill an array slot if empty */
-bool enqueue(int *countSlotsOccupied)
+bool enqueue(int *countSlotsOccupied, int addMax)
 {
 	int loopVar;
+	int addCount = 0;
 
 	///* When array is full, update the time of inputbuffer */
 	//if(*countSlotsOccupied == ARRAY_SIZE-1) /* Array is filled */
@@ -414,19 +604,20 @@ bool enqueue(int *countSlotsOccupied)
 			//inputBuffer.timeEnqueued = currentCPUTick;
 	//}
 	
-	for(loopVar = 0; loopVar <ARRAY_SIZE; ++loopVar)
+	for(loopVar = 0; loopVar < ARRAY_SIZE; ++loopVar)
 	{	/* Find an open spot to enqueue */
 		
-		 if(requestQueue[loopVar].occupied == NO)
+		 if(requestQueue[loopVar].occupied == FALSE)
 		{
 			addCount += 1;
+			printf("Addcount: %d\n", addCount);
+			printf("Addmax: %d\n", addMax);
+			
 			if (addCount == addMax)
 				requestQueue[loopVar].timeIssued = currentCPUTick;
 			else
 				requestQueue[loopVar].timeIssued = inputBuffer.timeIssued;
-				
-			printf("\nAdded request: %s issued at time: %llu enqueued at time %llu\n", inputBuffer.name, inputBuffer.timeIssued, requestQueue[loopVar].timeIssued);
-			
+							
 			/*Open slot found. Copy the contents of the temporary buffer */
 		 	strcpy(requestQueue[loopVar].name,inputBuffer.name);
 			requestQueue[loopVar].fullAddress 	= inputBuffer.fullAddress;
@@ -438,7 +629,9 @@ bool enqueue(int *countSlotsOccupied)
 			requestQueue[loopVar].finished 		= NO;
 			requestQueue[loopVar].timeRemaining = NO;
 			*countSlotsOccupied  = *countSlotsOccupied +1;	/*Increment counter */
-			printf("\n+++Current queue size: %d+++\n", *countSlotsOccupied);
+			
+			printf("\nAdded request: %s issued at time: %llu enqueued at time %llu\n", inputBuffer.name, inputBuffer.timeIssued, requestQueue[loopVar].timeIssued);
+			printf("Row: %u Bank: %u Column: %u\n\n", requestQueue[loopVar].row, requestQueue[loopVar].bank, requestQueue[loopVar].column);
 						
 			return FALSE;  /* futureRequest= FALSE. Reload the buffer with CPU request next time */
 		}
@@ -495,23 +688,23 @@ bool loadInputBuffer(FILE *fp)
 
 void examineQueueForCompletion(int * countSlotsOccupied)
 {	
-		int loopVar	= 0;					/* Temporary loop variable */
+	int loopVar	= 0;					/* Temporary loop variable */
 
-	/* Remove all the requests  that are completed*/
-		for(loopVar=0; loopVar <ARRAY_SIZE ; ++loopVar)
+/* Remove all the requests  that are completed*/
+	for(loopVar=0; loopVar < ARRAY_SIZE ; ++loopVar)
+	{
+		if(requestQueue[loopVar].occupied && requestQueue[loopVar].finished)
 		{
-			if(requestQueue[loopVar].occupied && requestQueue[loopVar].finished)
+			requestQueue[loopVar].timeRemaining = requestQueue[loopVar].timeRemaining - 1;
+			
+			if(requestQueue[loopVar].timeRemaining == 0)
 			{
-					requestQueue[loopVar].timeRemaining = requestQueue[loopVar].timeRemaining -1;
-					
-					if(requestQueue[loopVar].timeRemaining==0)
-					{
-						requestQueue[loopVar].occupied = FALSE;      /* The slot is open for enqueue */
-						*countSlotsOccupied = *countSlotsOccupied - 1;	/* Decreament the queue counter */
-						printf("\n---Current queue size: %d---\n", *countSlotsOccupied);
-					}
+				requestQueue[loopVar].occupied = FALSE;      /* The slot is open for enqueue */
+				*countSlotsOccupied = *countSlotsOccupied - 1;	/* Decreament the queue counter */
+				printf("New Occupied: %d\n", *countSlotsOccupied);
 			}
 		}
+	}
 }
 /*====================================================================*/
 int main(int argc, char **argv)
@@ -520,7 +713,7 @@ int main(int argc, char **argv)
 	bool endOfFile;							   		/* End of file variable */
 	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
 	currentCPUTick     	  	 = 0;					/* Start of the simulation */
-	
+	int addMax = 0;
 	
 	int i;
 	
@@ -559,18 +752,17 @@ int main(int argc, char **argv)
 	
 	while (!endOfFile || (countSlotsOccupied !=0))
 	{
-		
-		addMax = ARRAY_SIZE - countSlotsOccupied + 1;
-		addCount = 0;
-		
 		/* Call a function to see if any request has been completed */
 		
+		
+		printf("\nOccupied: %d\n", countSlotsOccupied);
+		addMax = ARRAY_SIZE - countSlotsOccupied + 1;
+		printf("Current addmax: %d\n", addMax);
 		examineQueueForCompletion(&countSlotsOccupied);
 		
 		/*====================================================================*/
-		while (!endOfFile && countSlotsOccupied !=(ARRAY_SIZE)&&!issueTimeErrorFlag)   
+		while (!endOfFile && countSlotsOccupied != ARRAY_SIZE && !issueTimeErrorFlag)   
 		{
-			
 			/* Check this section again */
 			/*==============================================*/
 			if(futureRequest == YES)
@@ -578,8 +770,6 @@ int main(int argc, char **argv)
 				/* CASE 1: Queue is empty */
 				if(countSlotsOccupied == 0)
 				{
-					// This will move us off DRAM cycle ticks -- 
-					// needs to be next valid DRAM cycle instead.
 					if(inputBuffer.timeIssued >currentCPUTick)
 						currentCPUTick = inputBuffer.timeIssued + (4 - inputBuffer.timeIssued % 4);
 				}
@@ -587,7 +777,7 @@ int main(int argc, char **argv)
 				if(inputBuffer.timeIssued > currentCPUTick)
 					break;  		/* It's not yet time to enqueue. So break the loop */
 				
-				futureRequest = enqueue(&countSlotsOccupied);	/* Queue in the first open slot found */
+				futureRequest = enqueue(&countSlotsOccupied, addMax);	/* Queue in the first open slot found */
 			}
 			
 			/* Load another image from */
@@ -611,9 +801,7 @@ int main(int argc, char **argv)
 		}
 		
 		/* Call a function to see if any request has been completed */
-		
-		examineQueueForCompletion(&countSlotsOccupied);
-	
+			
 	/* Do the DRAM service */
 
 		policyManager();

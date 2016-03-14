@@ -67,9 +67,7 @@ starveStruct starvationStatus;
 unsigned long long currentCPUTick = 0;  /* Current CPU tick */
 unsigned STARVATION_LIMIT = 200;
 int countSlotsOccupied	 = 0;
-int addCount = 0;
-int addMax = 0;
 
-unsigned commandTimers[TOTAL_BANKS][4];
+int commandTimers[TOTAL_BANKS][4];
 unsigned lastIssueTime;
 bool issueTimeErrorFlag;
