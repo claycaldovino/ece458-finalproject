@@ -670,9 +670,19 @@ bool loadInputBuffer(FILE *fp)
 			/* If the last CPU issue time was less than the current issue time,
 			    there is a error. So, set the time error flag.*/
 			/*==================================================================*/
-			if(lastIssueTime >= inputBuffer.timeIssued && inputBuffer.timeIssued !=0)
-					issueTimeErrorFlag = YES;
-				/* Update the last issue time */
+			if(lastIssueTime > inputBuffer.timeIssued && inputBuffer.timeIssued !=0)
+			{
+				/* CPU issued time is out of order */
+				issueTimeErrorFlag = YES;
+				printf("ERROR! CPU requests are not sequentially ordered\n");
+			}		
+				/* Two CPU Requests at the same time error */
+			else if (lastIssueTime == inputBuffer.timeIssued && countSlotsOccupied !=0)
+			{
+				/* CPU issed two requests at the same time */
+				issueTimeErrorFlag = YES;
+				printf("Error!!! CPU  cannot issue more than 1 request at the same time\n");
+			}
 			else
 				lastIssueTime = inputBuffer.timeIssued;
 			/*====================================================================*/
@@ -794,11 +804,10 @@ int main(int argc, char **argv)
 								
 		}
 
+		/* Error in CPU request time sequence or two requests at the same time */
 		if(issueTimeErrorFlag)
-		{
-			printf("ERROR!! The current request issue time cannot be less than the former issue time!");
 			break;
-		}
+		
 		
 		/* Call a function to see if any request has been completed */
 			

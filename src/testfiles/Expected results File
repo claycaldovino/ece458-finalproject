@@ -1,0 +1,26 @@
+1) Out of Sequence test
+
+
+0x2000D5C0	IFETCH		0
+0x1FF96FC0	WRITE		2
+0x2000D600	IFETCH		1
+0x2000D5C0	IFETCH		3
+
+In this test, the time issued for third request is in the past compared
+to the second request. So, this is an ERROR! The expected result is
+that the program should exit immediately displaying
+"ERROR! CPU requests are not sequentially ordered"
+
+
+2) Two requests at the same time:
+
+0x2000D5C0	IFETCH		0
+0x1FF96FC0	WRITE		1
+0x2000D600	IFETCH		1
+0x2000D5C0	IFETCH		3
+
+In this test, the time issued for the second request and the third requests are
+equal. This cannot happen because CPU cannot issue two commands at the same time.
+Hence the program should exit immediately displaying 
+"Error!!! CPU  cannot issue more than 1 request at the same time"
+
