@@ -1,0 +1,13 @@
+TITLE:
+	Empty file test.
+
+DESCRIPTION:
+	This test is designed to test, if the CPU request file is empty. In other words, there is
+	no request in the file to service.
+
+INPUT:
+	A blank file without any requests on it.
+
+
+EXPECTED OUTPUT:
+	Based on this input, the program should echo "File is empty" and exit the program.

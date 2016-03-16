@@ -761,7 +761,8 @@ int main(int argc, char **argv)
 	endOfFile = loadInputBuffer(fp);
 	if(!endOfFile)
 		futureRequest = YES;
-
+	else
+		printf("File is empty!\n");
 	
 	while (!endOfFile || (countSlotsOccupied !=0))
 	{
