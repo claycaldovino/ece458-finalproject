@@ -32,7 +32,7 @@ int main()
 
 	FILE *ofile;		/* Output file pointer */
 
-	if((ofile = fopen("test.txt","w"))== NULL)
+	if((ofile = fopen("test2.txt","w+"))== NULL)
 		printf("File open not successful. \n");
 	else
 	{
@@ -61,7 +61,7 @@ int main()
 		getchar();
 
 		/* Write out values */
-		fprintf(ofile,"0x%08x \t %s \t %u \n", address,requestType,timeIssued);
+		fprintf(ofile,"0x%08x \t %s \t %u\n", address,requestType,timeIssued);
 
 		response = askUser();
 		printf("\n");
