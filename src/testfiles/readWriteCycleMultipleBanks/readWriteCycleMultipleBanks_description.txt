@@ -11,7 +11,9 @@ tRC - activate to precharge, 50 DRAM, 200 CPU
 tRTP - Read to Precharge delay, 32 DRAM, 8 CPU
 tRRD - Activate to activate to different banks, 24 DRAM, 6 CPU
 tCCD - Time between writes/reads, 16 DRAM, 4 CPU cycles
+tRTW - Read to write delay (tCAS + tCCD + 2 - tCWL)
 
+tCAS - tCWL + tBURST = 8
 
 Addresses used only differ in banks (same row/col)
 Bank A = 0x1FF83000
@@ -41,12 +43,17 @@ Expected Output (same bank/col):
 0x1FF8B000 PRE 12
 
 0x1FF83000 ACT 56 (tRP = 56)
-0x1FF9F000 ACT 80 (tRRD = 24)
+0x1FF9F000 ACT 80 (tRRD = 24) (ACT to ACT delay between banks)
 0x1FF8B000 ACT 104 (tRRD = 24)
 
-0x1FF83000 READ 112 (tRCD = 56)
-0x1FF9F000 READ 136 (tRCD = 24)
-0x1FF8B000 ACT 104 (tRRD = 24)
+0x1FF83000 READ 112 (tRCD = 56, from same bank)
+0x1FF9F000 READ 136 (tRCD = 56)
+0x1FF8B000 READ 160 (tRCD = 56)
+
+0x1FF83000 WRITE 192 (tCAS - tCWL + tBURST = 32, from bank A)
+0x1FF9F000 WRITE 208 (tCAS - tCWL + tBURST = 32, bank B)
+0x1FF8B000 WRITE 224 
+
 
 
 0	PRE	0
@@ -55,11 +62,9 @@ Expected Output (same bank/col):
 56	ACT	0	4092
 80	ACT	7	4092
 104	ACT	2	4092
-
 112	RD	0	1536
 136	RD	7	1536
 160	RD	2	1536
-
 192	WR	0	1536
 208	WR	7	1536
 224	WR	2	1536
