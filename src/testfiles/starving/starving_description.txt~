@@ -1,0 +1,26 @@
+Starving Request Test
+
+Our program should find and give priority to any starving command.
+
+Input:
+0x00024008 	 READ 	 0
+0x00024008 	 READ 	 1
+0x00024008 	 READ 	 2
+0x00024008 	 READ 	 3
+0x00024008 	 READ 	 4
+0x00044008 	 READ 	 5
+0x00024008 	 READ 	 6
+0x00024008 	 READ 	 7
+0x00024008 	 READ 	 8
+0x00024008 	 READ 	 9
+0x00024008 	 READ 	 10
+0x00024008 	 READ 	 11
+0x00024008 	 READ 	 12
+0x00024008 	 READ 	 13
+0x00024008 	 READ 	 14
+0x00024008 	 READ 	 15
+
+
+The first 5 commands are a Read to the same bank/row/col and should prevent the Read issued at time 5 from completing because it is to a different row in the same bank. Eventually it will starve then take priority and complete before returning to the others.
+
+
