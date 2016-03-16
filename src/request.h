@@ -28,6 +28,8 @@ typedef int bool;
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
 
+#define STARVE_LIMIT 200
+
 typedef enum {PRE, ACT, RD, WR, WAIT} command;
 
 typedef struct
@@ -65,7 +67,6 @@ bankStatus dimmStatus[TOTAL_BANKS];
 starveStruct starvationStatus; 
 
 unsigned long long currentCPUTick = 0;  /* Current CPU tick */
-unsigned STARVATION_LIMIT = 200;
 int countSlotsOccupied	 = 0;
 
 int commandTimers[TOTAL_BANKS][4];

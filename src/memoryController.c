@@ -9,7 +9,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 int calculateWindow(const command cmd, const unsigned bank, unsigned long long *lower, unsigned long long *upper);
 void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
-void incrementTimers();
+void incrementTimers(int n);
 int findStarvation();
 
 void policyManager()
@@ -143,7 +143,7 @@ void policyManager()
 			
 		default:
 			printf("CPU:%llu ---\n", currentCPUTick);
-			incrementTimers();
+			incrementTimers(1);
 		break;
 	}
 	
@@ -317,7 +317,7 @@ int findStarvation()
 		{
 			starvationTemp = currentCPUTick - requestQueue[i].timeIssued;
 			
-			if (starvationTemp > STARVATION_LIMIT 
+			if (starvationTemp > STARVE_LIMIT 
 			    && starvationTemp > starvationAmount)
 			{
 			    starvationAmount = starvationTemp;
@@ -564,7 +564,7 @@ void initializeTimers()
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			commandTimers[i][j] = 200;	
+			commandTimers[i][j] = STARVE_LIMIT;	
 	
 }
 
@@ -576,19 +576,19 @@ void updateTimers(command cmd, unsigned bank)
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] < 200)
+			if (commandTimers[i][j] < STARVE_LIMIT)
 				commandTimers[i][j] += 1;
 
 }
 
-void incrementTimers()
+void incrementTimers(int n)
 {
 	int i, j;
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] < 200)
-				commandTimers[i][j] += 1;
+			if (commandTimers[i][j] < STARVE_LIMIT)
+				commandTimers[i][j] += n;
 }
 
 /*===============================================================================*/
