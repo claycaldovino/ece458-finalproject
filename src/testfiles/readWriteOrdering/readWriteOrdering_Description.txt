@@ -1,38 +1,35 @@
 TITLE:
-	Read Cycle timing basic test
+
+	Read Write Ordering
 
 DESCRIPTION: 
-	We are testing that the read cycle obeys timing constraints. It is a very basic test that sends two read commands to the same bank, but different rows. Testing tRP, tRCD, CL, tRC, tRTP as shown below.
 
-TRP - precharge to activate, 14 CPU - 56 cycles
-tRCD - active to read, 14 DRAM, 56 CPU cycles
-CL - read to data, 14 DRAM, 56 CPU cycles
-tRC - activate to precharge, 50 DRAM, 200 CPU
-tRTP - Read to Precharge delay, 32 DRAM, 8 CPU
+	We are testing that read-write follow right order. We are doing read to a row, bank and column, and 
+	we have subsequent write and read to the same locations. In this case, although read to read have smaller
+	delay than read to write, we cannot read issue read-read before we issue write. 
 
 INPUT: 
 
-0x1FF9B000  READ 0
-0x1FFBB000  READ 1
+	0x001540a0 	 READ 	 10
+	0x001540a0 	 WRITE 	 20
+	0x001540a0 	 READ 	 30
 
-
-We expect to see a precharge, active and then read for the first command, followed by the same sequence for the second.
+	In this case, all the requests are for bank-5, row-10, and column-20. 
+	
 
 Expected Output (same bank/col):
+	Although the third request (READ) would take less time than the second command (WRITE), expect that the
+	second command gets serviced first.
+	This is what we expect to get timining wise:
 
-Row 4092:
-0x1FF9B000 PRE 0 (tRP = 56)
-0x1FF9B000 ACT 56 (tRCD = 56)
-0x1FF9B000 READ 112 (CL + tRP = 88)
-
-Row 4093:
-0x1FFBB000 PRE 200 (tRP = 56)
-0x1FFBB000 ACT 256 (tRCD = 56)
-0x1FFBB000 READ 312 (CL + tRP = 88)
-
-0	PRE	6
-56	ACT	6	4092
-112	RD	6	1536
-200	PRE	6
-256	ACT	6	4093
-312	RD	6	1536
+	first READ at time 12 because it is the begining of the next DRAM cycle.
+	Then wait tRP --56 CPU cycles -- to issue ACT (12+56 =68 )
+	Then issue RD command after tRCD --56 that is time = 68+56=124
+	Then issue WR after delay of tRTW=tCAS+tCCD+2-tCWL --> (14+4+2-10)*4 + 124 = 164
+	Then issue RD after delay of tWTR = 8*4 = 32. that is at time = 164+32 = 19
+	
+12	PRE	5
+68	ACT	5	10
+124	RD	5	20
+164	WR	5	20
+196	RD	5	20
