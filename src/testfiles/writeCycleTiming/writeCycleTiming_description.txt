@@ -1,0 +1,40 @@
+TITLE:
+	Write Cycle timing basic test
+
+DESCRIPTION: 
+	We are testing that the write cycle  (write to write in same bank different rows) obeys timing constraints. It is a very basic test that sends two read commands to the same bank, but different rows. Testing tRP, tRCD, CL, tRC, tRTP as shown below.
+
+TRP - precharge to activate, 14 CPU - 56 cycles
+tRCD - active to read, 14 DRAM, 56 CPU cycles
+CL - read to data, 14 DRAM, 56 CPU cycles
+tRC - activate to precharge, 50 DRAM, 200 cycles
+tRTP - Read to Precharge delay, 32 DRAM, 8 cycles
+tCCD - Time between writes/reads, 16 DRAM, 4 CPU cycles
+
+
+INPUT: 
+
+0x1FF9B000  WRITE 0
+0x1FFBB000  WRITE 1
+
+
+We expect to see a precharge, active and then write for the first command, followed by the same sequence for the second.
+
+Expected Output (same bank/col):
+
+Row 4092:
+0x1FF9B000 PRE 0 (tRP = 56)
+0x1FF9B000 ACT 56 (tRCD = 56)
+0x1FF9B000 WRITE 112 (tCCD + CL = 120)
+
+Row 4093:
+0x1FFBB000 PRE 232 (tRP = 56)
+0x1FFBB000 ACT 288 (tRCD = 56)
+0x1FFBB000 READ 344 (tCCD + CL = 120)
+
+0	PRE	6
+56	ACT	6	4092
+112	WR	6	1536
+232	PRE	6
+288	ACT	6	4093
+344	WR	6	1536
