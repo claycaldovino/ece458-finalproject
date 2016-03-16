@@ -1,0 +1,26 @@
+TITLE
+	This test expands on the readCycle test, we are testing the same thing, but testing long intervals between read instructions to a different row.
+Input:
+
+0x1FF97000  READ 0
+0x1FFBB000  READ 10000000
+
+We should see 
+
+Expected Output:
+
+0x1FF97000 PRE 0 (tRP = 56)
+0x1FF97000 ACT 56 (tRCD = 56)
+0x1FF97000 READ 112 (CL + tRP = 88)
+
+0x1FFBB000  PRE 10000004 (1000000 +1 CPU CK)
+0x1FFBB000 ACT 10000060 (tRCD = 56)
+0x1FFBB000 READ 10000116 
+
+Actual Output:
+0	PRE	5
+56	ACT	5	4092
+112	RD	5	1536
+10000004	PRE	6
+10000060	ACT	6	4093
+10000116	RD	6	1536

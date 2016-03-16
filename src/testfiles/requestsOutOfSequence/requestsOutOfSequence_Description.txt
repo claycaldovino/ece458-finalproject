@@ -1,0 +1,19 @@
+TITLE:
+	Requests Out of Sequence Test
+
+DESCRIPTION:
+	This test is designed to test if CPU requests are not issued chronologically.
+
+INPUT:
+
+	0x2000D5C0	IFETCH		0
+	0x1FF96FC0	WRITE		2
+	0x2000D600	IFETCH		1
+	0x2000D5C0	IFETCH		3
+
+	Requests 2 is issued before request 3. So, they are not chronological. Based on this input,
+	the program should echo an error.
+
+EXPECTED OUTPUT:
+	ERROR! CPU requests are not ordered chronologically
+
