@@ -13,6 +13,9 @@ void incrementTimers(unsigned long n);
 int findStarvation();
 void policyManager(FILE *ofile);
 
+
+// This function determines which command to issue next based on our
+// policy decisions.
 void policyManager(FILE *ofile)
 {	
 	command chosenCommand = WAIT;
@@ -23,6 +26,7 @@ void policyManager(FILE *ofile)
 	int chosenIndex;
 	int queueIndex;
 	
+	// Check for a starving command and give it priority if it is legal.
 	int starveCheck = findStarvation();
 	if (starveCheck != -1)
 	{
@@ -30,12 +34,15 @@ void policyManager(FILE *ofile)
 		chosenCommand = findNextCommand(starveCheck);
 		chosenPriority = 10;
 		
+		// Update starving struct with info
 		starvationStatus.isCommandStarving = TRUE;
 		starvationStatus.name = chosenCommand;
 		starvationStatus.bank = requestQueue[chosenIndex].bank;
 		
+		// Determine and store window that is locked out to other banks
 		calculateWindow(starvationStatus.name, starvationStatus.bank, &starvationStatus.lowerWindow, &starvationStatus.upperWindow);
-				
+		
+		// If command is not legal assign a WAIT command and low priority.
 		if (!isCommandLegal(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row, chosenIndex, TRUE))
 		{
 			chosenCommand = WAIT;
@@ -44,11 +51,14 @@ void policyManager(FILE *ofile)
 	}
 	else
 	{
+		// No starving requests.
 		starvationStatus.isCommandStarving = FALSE;
 	}
 	
+	// Look through queue and find highest priority legal commands.
 	for (queueIndex = 0; queueIndex < 16; ++queueIndex)
 	{
+		// Array element must be valid and not the most starving request.
 		if (requestQueue[queueIndex].occupied && 
 			!requestQueue[queueIndex].finished && 
 			queueIndex != starveCheck)
@@ -60,9 +70,11 @@ void policyManager(FILE *ofile)
 				requestQueue[queueIndex].row,
 				queueIndex, FALSE);
 				
+			// Skip illegal commands.
 			if (!isLegal)
 				continue;
 				
+			// Assign priority based on command.
 			switch(nextCommand)
 			{
 				case PRE :
@@ -87,13 +99,15 @@ void policyManager(FILE *ofile)
 				default :
 				printf("\nERROR: Unknown Command\n");
 			}
-			
+
+			// Keep highest priority command.
 			if (comparePriority > chosenPriority)
 			{
 				chosenPriority = comparePriority;
 				chosenIndex = queueIndex;
 				chosenCommand = nextCommand;
 			}
+			// The oldest request wins if priority tie.
 			else if (comparePriority == chosenPriority)
 			{
 				if (requestQueue[queueIndex].timeIssued < 
@@ -106,6 +120,7 @@ void policyManager(FILE *ofile)
 		}
 	}
 	
+	// Print the correct output based on command chosen.
 	switch (chosenCommand)
 	{
 		case PRE:
@@ -123,6 +138,7 @@ void policyManager(FILE *ofile)
 		case RD:
 			fprintf(ofile, "%llu\tRD\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
+			// Read requests will stay until data is finished.
 			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
@@ -145,6 +161,7 @@ void policyManager(FILE *ofile)
 	
 }
 
+// Two cases for precharge priority.
 int prechargePriority(int queueIndex)
 {
 	int bank = requestQueue[queueIndex].bank;
@@ -152,16 +169,19 @@ int prechargePriority(int queueIndex)
 	int priority = 0;
 	int i;
 	
+	// Check queue for requests to same bank as precharge but to an open row.
 	for (i = 0; i < 16; ++i)
 	{
 		if (requestQueue[i].occupied && !requestQueue[i].finished &&
 			i != queueIndex)
 		{
+			// If request to current open row, assign low priority
 			if ((requestQueue[i].bank == bank) && (requestQueue[i].row == row))
 			{
 				priority = 0;
 				return priority;
 			}
+			// If no requests to open row, safe to precharge
 			else
 				priority = 3;
 		}
@@ -170,6 +190,7 @@ int prechargePriority(int queueIndex)
 	return priority;
 }
 
+// Find locked window from starved commands. Determine next possible time for command to be issued.
 int calculateWindow(const command cmd, const unsigned bank, unsigned long long *lower, unsigned long long *upper)
 {
 	unsigned long long temp1 = 0;
@@ -178,11 +199,14 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 	int loopCheck;
 	int i;
 	
+	// Window base on command.
 	switch (cmd)
 	{
+		// No commands affect precharges.
 		case PRE:
 			return 0;
 			
+		// Activates prevent other activate in other banks.
 		case ACT:
 			for(i=0; i < 8; ++i)
 			{
@@ -195,6 +219,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			
 			temp1 = temp1 + currentCPUTick;			
 			
+			// Check bank timings to find time to issue command.
 			if (tRP - commandTimers[bank][cmd] > 0)
 				temp2 = currentCPUTick + ((tRP - commandTimers[bank][cmd]) * 4);
 				
@@ -207,6 +232,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			return 0;
 		
 		case RD :
+			// Cannot read within a certain time of another read.
 			for(i=0; i < 8; ++i)
 			{
 				loopCheck = (tBURST - commandTimers[i][RD]) * 4;
@@ -218,12 +244,15 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			
 			temp1 = temp1 + currentCPUTick;
 			
+			// Check time since bank activate.
 			if (tRCD - commandTimers[bank][ACT] > 0)
 				temp2 = currentCPUTick + ((tRCD - commandTimers[bank][ACT]) * 4);
 			
+			// Check time since bank write.
 			if (tWTR - commandTimers[bank][WR] > 0)
 				temp3 = currentCPUTick + ((tWTR - commandTimers[bank][WR]) * 4);
 				
+			// Find time of read command.
 			if (temp1 > temp2)
 			{
 				if (temp1 > temp3)
@@ -239,11 +268,13 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 					*upper = temp3;
 			}
 			
+			// Find window.
 			*lower = *upper - (tBURST * 4);
 			
 			return 0;
 		
 		case WR :
+			// Cannot write within a certain time of another write.
 			for(i=0; i < 8; ++i)
 			{
 				loopCheck = (tBURST - commandTimers[i][WR]) * 4;
@@ -255,6 +286,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			
 			temp1 = temp1 + currentCPUTick;
 			
+			// Cannot write with a certain time of another read.
 			for(i=0; i < 8; ++i)
 			{
 				loopCheck = ((tCAS - tCWL + tBURST) - commandTimers[i][RD]) * 4;
@@ -269,7 +301,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			if (temp1 < temp2)
 				temp1 = temp2;
 			
-			
+			// Check time since last bank activate command.
 			if (tRCD - commandTimers[bank][ACT] > 0)
 				temp2 = currentCPUTick + ((tRCD - commandTimers[bank][ACT]) * 4);
 			else
@@ -278,7 +310,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 			if (temp1 < temp2)
 				temp1 = temp2;
 					
-								
+			// Check time since last bank read command.
 			if (tRTW - commandTimers[bank][RD] > 0)
 				temp2 = currentCPUTick + ((tRTW - commandTimers[bank][RD]) * 4);
 			else
@@ -289,7 +321,8 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 				*upper = temp1;
 			else
 				*upper = temp2;
-			
+				
+			// Find window.			
 			*lower = *upper - ((tCAS - tCWL + tBURST) * 4);
 			return 0;
 			
@@ -301,6 +334,7 @@ int calculateWindow(const command cmd, const unsigned bank, unsigned long long *
 
 }
 
+// Find the most starved command in the queue and return its index.
 int findStarvation()
 {
 	int i;
@@ -356,15 +390,21 @@ command findNextCommand(int rqIndex)
 	}
 }
 
+// Checks appropriate timings in 2D array to determine if it is legal to
+// issue a command.
 bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool starvedCommand)
 {
 	bool check = FALSE;
 	int i;
 	
+	// If the command is to the same bank as a starved command, it is not legal.
 	if (starvationStatus.isCommandStarving && starvedCommand == FALSE)
 		if (bank == starvationStatus.bank)
 			return FALSE;
 	
+	// Cases describe the timing constraints of each command.
+	// Also determines if the command will be issued in a starvation window.
+	// If so, it is not legal as it will push back the starving command.
 	switch (cmd)
 	{
 		case PRE:
@@ -414,6 +454,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 			{
 				for (i = 0; i < 16; ++i)
 				{
+					// Check for Read / Write ordering
 					if (requestQueue[i].occupied & !requestQueue[i].finished)
 					{
 						if (!strcmp(requestQueue[i].name, "WRITE") &&
@@ -481,6 +522,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 			{
 				for (i = 0; i < 16; ++i)
 				{
+					// Check for Read / Write ordering
 					if (requestQueue[i].occupied & !requestQueue[i].finished)
 					{
 						if ((!strcmp(requestQueue[i].name, "READ") ||
@@ -549,6 +591,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 	return check;
 }
 
+// Update our struct that keeps track of the status of the DIMM.
 void updateDimmStatus(command cmd, unsigned bank, unsigned row)
 {
 	if (cmd == PRE)
@@ -574,6 +617,7 @@ void initializeTimers()
 	
 }
 
+//  Update the appropriate command timings.
 void updateTimers(command cmd, unsigned bank)
 {
 	int i, j;
@@ -587,6 +631,7 @@ void updateTimers(command cmd, unsigned bank)
 
 }
 
+// Increment each timer by n.
 void incrementTimers(unsigned long n)
 {
 	int i, j;
