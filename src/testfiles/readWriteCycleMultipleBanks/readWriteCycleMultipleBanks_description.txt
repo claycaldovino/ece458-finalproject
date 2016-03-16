@@ -1,0 +1,65 @@
+TITLE:
+	Testing read/write cycles on multiple banks banks.
+
+DESCRIPTION: 
+	This test is to make sure that we are interleaving commands throughout multiple banks and that timing constraints are obeyed. 
+
+TRP - precharge to activate, 14 CPU - 56 cycles
+tRCD - active to read, 14 DRAM, 56 CPU cycles
+CL - read to data, 14 DRAM, 56 CPU cycles
+tRC - activate to precharge, 50 DRAM, 200 CPU
+tRTP - Read to Precharge delay, 32 DRAM, 8 CPU
+tRRD - Activate to activate to different banks, 24 DRAM, 6 CPU
+tCCD - Time between writes/reads, 16 DRAM, 4 CPU cycles
+
+
+Addresses used only differ in banks (same row/col)
+Bank A = 0x1FF83000
+Bank B = 0x1FF9F000
+Bank C = 0x1FF8B000
+
+INPUT: 
+
+0x1FF83000	READ 0
+0x1FF83000	WRITE 1
+0x1FF9F000  READ 2
+0x1FF9F000  WRITE 3
+0x1FF8B000	READ 4
+0x1FF8B000	WRITE 5
+
+
+We expect to see the PRE, ACT, READ, then WRITE commands grouped together and interleaved throughout the 3 banks in A, B, C order.
+
+There should be a 1 CPU/4 DRAM cycle difference between the Precharges in different banks
+56 DRAM cycles (tRCD) between 
+
+Expected Output (same bank/col):
+
+
+0x1FF83000 PRE 4 (1 CK between precharges)
+0x1FF9F000 PRE 8
+0x1FF8B000 PRE 12
+
+0x1FF83000 ACT 56 (tRP = 56)
+0x1FF9F000 ACT 80 (tRRD = 24)
+0x1FF8B000 ACT 104 (tRRD = 24)
+
+0x1FF83000 READ 112 (tRCD = 56)
+0x1FF9F000 READ 136 (tRCD = 24)
+0x1FF8B000 ACT 104 (tRRD = 24)
+
+
+0	PRE	0
+4	PRE	7
+8	PRE	2
+56	ACT	0	4092
+80	ACT	7	4092
+104	ACT	2	4092
+
+112	RD	0	1536
+136	RD	7	1536
+160	RD	2	1536
+
+192	WR	0	1536
+208	WR	7	1536
+224	WR	2	1536

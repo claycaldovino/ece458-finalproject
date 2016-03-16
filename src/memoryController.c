@@ -154,7 +154,8 @@ int prechargePriority(int queueIndex)
 	
 	for (i = 0; i < 16; ++i)
 	{
-		if (requestQueue[i].occupied && !requestQueue[i].finished)
+		if (requestQueue[i].occupied && !requestQueue[i].finished &&
+			i != queueIndex)
 		{
 			if ((requestQueue[i].bank == bank) && (requestQueue[i].row == row))
 			{
