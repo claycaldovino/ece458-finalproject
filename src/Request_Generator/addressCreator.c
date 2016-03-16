@@ -1,6 +1,6 @@
-/* This file takes in RoW, Bank and Column information 
-   and makes a 32-bit address. It also takes in type of 
-   CPU request and time issued*/
+/* This file takes in RoW, Bank and Column, type of request
+   and time issued information and makes a 32-bit address. 
+   It also takes in type of CPU request and time issued*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,7 @@ int askUser()
 		return 1;
 	else
 	{
-		printf("\nExiting... Thank you!!\n");
+		printf("\nExiting...!!\n");
 		return 0;
 	}
 }
@@ -32,7 +32,7 @@ int main()
 
 	FILE *ofile;		/* Output file pointer */
 
-	if((ofile = fopen("test.tx","w"))== NULL)
+	if((ofile = fopen("test.txt","w"))== NULL)
 		printf("File open not successful. \n");
 	else
 	{
