@@ -11,8 +11,9 @@ void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
 void incrementTimers(unsigned long n);
 int findStarvation();
+void policyManager(FILE *ofile);
 
-void policyManager()
+void policyManager(FILE *ofile)
 {	
 	command chosenCommand = WAIT;
 	command nextCommand;
@@ -108,19 +109,19 @@ void policyManager()
 	switch (chosenCommand)
 	{
 		case PRE:
-			printf("%llu\tPRE\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank);
+			fprintf(ofile, "%llu\tPRE\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank);
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case ACT:
-			printf("%llu\tACT\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			fprintf(ofile, "%llu\tACT\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case RD:
-			printf("%llu\tRD\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			fprintf(ofile, "%llu\tRD\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
@@ -128,7 +129,7 @@ void policyManager()
 		break;
 		
 		case WR:
-			printf("%llu\tWR\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			fprintf(ofile, "%llu\tWR\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].occupied = FALSE;
 			countSlotsOccupied -= 1;
@@ -722,6 +723,7 @@ void examineQueueForCompletion(int * countSlotsOccupied)
 /*===============================================================================*/
 int main(int argc, char **argv)
 {
+	FILE *ofile;
 	FILE *fp;								    	/* File handler */
 	bool endOfFile;							   		/* End of file variable */
 	bool futureRequest  	 = FALSE;				/* The CPU request is for future time. It also makes "inputBuffer hold-On" call */
@@ -740,9 +742,9 @@ int main(int argc, char **argv)
 
 	/*================================================================================*/
 	/* Open the file */
-     if (argc != 2)
+     if (argc != 3)
      {
-      	printf("You must enter a testfile to use, './memoryController testfile.txt'\n");
+      	printf("You must enter a testfile to use, and output file name.\n");
         return -1;
       }
  		
@@ -751,6 +753,13 @@ int main(int argc, char **argv)
          printf("Could not open file: %s\n", argv[1]);
          return -1;
      }
+     
+    if((ofile = fopen(argv[2],"w"))== NULL)
+    {
+		printf("File open not successful. \n");
+		return -1;
+	}
+	
 	/*====================================================================================*/
 	/* This is a big while loop that is exited only when there is no more CPU requests (in other
 	 * words end-of-file reached) and the queue is completely empty */
@@ -818,7 +827,7 @@ int main(int argc, char **argv)
 			
 	/* Do the DRAM service */
 
-		policyManager();
+		policyManager(ofile);
 		
 	/*=========================================================================*/
 	/* Service the DRAM */
