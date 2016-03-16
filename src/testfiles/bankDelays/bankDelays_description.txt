@@ -1,0 +1,30 @@
+Bank Delays
+
+There are bank to bank timing constraints that must be satisfied.
+They are:
+	RD->RD		tBURST
+	RD->WR		tCAS - tCWL + tBURST
+	WR->WR		tBURST
+	ACT->ACT	tRRD
+	
+Input:
+0x00024008 	 READ 	 0 
+0x00028008 	 READ 	 1 
+0x0002c008 	 WRITE 	 2 
+
+This should create scenarios where the bank to bank delays are preventing
+execution. The activates are pushed back, the read to bank to is delayed
+by the reads to bank 1, and the final write to bank 3 is delayed by the
+read to bank 2.
+
+Output:
+0	PRE		1
+4	PRE		2
+8	PRE		3
+56	ACT		1	1
+80	ACT		2	1
+104	ACT		3	1
+112	RD		1	1	
+128	RD		1	1
+144	RD		2	1
+176	WR		3	1
