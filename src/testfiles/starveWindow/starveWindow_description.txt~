@@ -1,0 +1,3 @@
+Starvation Window
+
+To improve performance we allow other commands to be issued while a request is starving, so long as it does not interefere with the starving commands compeletion. There is a window before the starving command where no conflicting command can be issued.

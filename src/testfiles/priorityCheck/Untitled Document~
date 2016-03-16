@@ -1,0 +1,34 @@
+Priority Check Test
+
+We use a priority system to determine the best command to issue that is legal. We use the following priorities:
+
+WAIT: -1
+PRECHARGE: 0, 3
+ACTIVATE: 2
+READ: 4
+WRITE: 4
+STARVING: 10
+
+Prechagre has two priorities: 0 for when it shares the queue with requests to a currently open row and 3 for when it does not and can safely issue the command. Starving is given a 10 to ensure it is satisfied first. Commands with the same priority are compared with their issued time to issue the oldest command.
+
+Input:
+
+0x00024008 	 READ 	 0 
+0x00024010 	 READ 	 1 
+0x00044008 	 READ 	 2 
+0x00024028 	 WRITE 	 3
+
+We should see a B1R1 activate to begin satisfying commands and then finish with 2 reads and a write before changing rows to satisfy the read issued at CPU tick 2.
+
+Output:
+
+0	PRE	1
+56	ACT	1
+112	RD	1	1
+116	RD	1	2
+156	WR	1	5
+160	PRE	1	
+216	ACT	2
+272	RD	1	1
+
+

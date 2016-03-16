@@ -1,0 +1,36 @@
+Starvation Window
+
+To improve performance we allow other commands to be issued while a 
+request is starving, so long as it does not interefere with the starving
+commands compeletion. There is a window before the starving command 
+where no conflicting command can be issued.
+
+Input:
+0x00024008 	 WRITE 	 0
+0x00024008 	 READ 	 1
+0x00024008 	 WRITE 	 2
+0x00024008 	 READ 	 3
+0x00024008 	 WRITE 	 4
+0x00024008 	 READ 	 5
+0x00024008 	 WRITE 	 6
+0x00028008 	 READ 	 200
+
+The first 6 commands should keep the controller busy long enough to
+cause the last requests to starve, increasing their priority, delaying
+the final read request. First the ACT is delayed by one DRAM cycle to
+allow the starving WR issued at CPU tick 4 to complete, then the RD is
+delayed 5 DRAM cycles to allow the last starving WR to complete.
+
+Output:
+0	PRE		1
+56	ACT		1	1
+112	WR		1	1
+144	RD		1	1
+184	WR		1	1
+200 PRE		2	
+216	RD		1	1
+256	WR		1	1
+260 ACT		2	1
+288	RD		1	1
+328 WR		1	1
+332 RD		2	1
