@@ -28,7 +28,10 @@ typedef int bool;
 #define ARRAY_SIZE 16
 #define TOTAL_BANKS 8
 
-#define STARVE_LIMIT 200
+#define STARVE_LIMIT 250
+
+// Saturation limit for 2D array.
+#define TIMER_LIMIT 200
 
 typedef enum {PRE, ACT, RD, WR, WAIT} command;
 

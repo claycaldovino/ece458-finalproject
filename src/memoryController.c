@@ -9,7 +9,7 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 int calculateWindow(const command cmd, const unsigned bank, unsigned long long *lower, unsigned long long *upper);
 void initializeTimers();
 void updateTimers(command cmd, unsigned bank);
-void incrementTimers(int n);
+void incrementTimers(unsigned long n);
 int findStarvation();
 
 void policyManager()
@@ -25,7 +25,6 @@ void policyManager()
 	int starveCheck = findStarvation();
 	if (starveCheck != -1)
 	{
-		printf("--> %s issued at %llu\n", requestQueue[starveCheck].name, requestQueue[starveCheck].timeIssued);
 		chosenIndex = starveCheck;
 		chosenCommand = findNextCommand(starveCheck);
 		chosenPriority = 10;
@@ -35,9 +34,7 @@ void policyManager()
 		starvationStatus.bank = requestQueue[chosenIndex].bank;
 		
 		calculateWindow(starvationStatus.name, starvationStatus.bank, &starvationStatus.lowerWindow, &starvationStatus.upperWindow);
-		
-		printf("Lower: %llu\nUpper: %llu\n", starvationStatus.lowerWindow, starvationStatus.upperWindow);
-		
+				
 		if (!isCommandLegal(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row, chosenIndex, TRUE))
 		{
 			chosenCommand = WAIT;
@@ -111,20 +108,19 @@ void policyManager()
 	switch (chosenCommand)
 	{
 		case PRE:
-			printf("CPU:%llu PRE %d\n", currentCPUTick, requestQueue[chosenIndex].bank);
+			printf("%llu\tPRE\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank);
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case ACT:
-			printf("CPU:%llu ACT %d %d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
+			printf("%llu\tACT\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
 			updateTimers(chosenCommand, requestQueue[chosenIndex].bank);
 		break;
 		
 		case RD:
-			printf("\nFinished read issued: %llu\n", requestQueue[chosenIndex].timeIssued);
-			printf("CPU:%llu RD %d %d %d\n", currentCPUTick, requestQueue[chosenIndex].row, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("%llu\tRD\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].timeRemaining = tCAS + tBURST;
 			updateDimmStatus(chosenCommand, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].row);
@@ -132,8 +128,7 @@ void policyManager()
 		break;
 		
 		case WR:
-			printf("\nFinished write issued: %llu\n", requestQueue[chosenIndex].timeIssued);		
-			printf("CPU:%llu WR %d %d %d\n", currentCPUTick, requestQueue[chosenIndex].row, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
+			printf("%llu\tWR\t%d\t%d\n", currentCPUTick, requestQueue[chosenIndex].bank, requestQueue[chosenIndex].column);
 			requestQueue[chosenIndex].finished = TRUE;
 			requestQueue[chosenIndex].occupied = FALSE;
 			countSlotsOccupied -= 1;
@@ -142,7 +137,7 @@ void policyManager()
 		break;
 			
 		default:
-			printf("CPU:%llu ---\n", currentCPUTick);
+			//printf("CPU:%llu ---\n", currentCPUTick);
 			incrementTimers(1);
 		break;
 	}
@@ -325,8 +320,6 @@ int findStarvation()
 			}
 		}
 	}
-	if(starvationAmount)
-		printf("\nStarved %llu CPU cycles\n", starvationAmount);
 	return mostStarvedRequest;
 }
 
@@ -518,6 +511,17 @@ bool isCommandLegal(command cmd, unsigned bank, unsigned row, int index, bool st
 					}
 				}
 				
+				for(i = 0; i < 8; ++i)
+				{
+					if (commandTimers[i][WR] >= tBURST)
+						check = TRUE;
+					else
+					{
+						check = FALSE;
+						return check;
+					}
+				}
+				
 				if (starvationStatus.isCommandStarving == TRUE && starvedCommand == FALSE)
 				{
 					if (starvationStatus.name == WR)
@@ -564,7 +568,7 @@ void initializeTimers()
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			commandTimers[i][j] = STARVE_LIMIT;	
+			commandTimers[i][j] = TIMER_LIMIT;	
 	
 }
 
@@ -576,18 +580,23 @@ void updateTimers(command cmd, unsigned bank)
 	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] < STARVE_LIMIT)
+			if (commandTimers[i][j] < TIMER_LIMIT)
 				commandTimers[i][j] += 1;
 
 }
 
-void incrementTimers(int n)
+void incrementTimers(unsigned long n)
 {
 	int i, j;
 	
+	if (n > TIMER_LIMIT)
+	{
+		n = TIMER_LIMIT;
+	}
+	
 	for (i = 0; i < TOTAL_BANKS; ++i)
 		for (j = 0; j < 4; ++j)
-			if (commandTimers[i][j] < STARVE_LIMIT)
+			if (commandTimers[i][j] < TIMER_LIMIT)
 				commandTimers[i][j] += n;
 }
 
@@ -610,8 +619,6 @@ bool enqueue(int *countSlotsOccupied, int addMax)
 		 if(requestQueue[loopVar].occupied == FALSE)
 		{
 			addCount += 1;
-			printf("Addcount: %d\n", addCount);
-			printf("Addmax: %d\n", addMax);
 			
 			if (addCount == addMax)
 				requestQueue[loopVar].timeIssued = currentCPUTick;
@@ -629,10 +636,7 @@ bool enqueue(int *countSlotsOccupied, int addMax)
 			requestQueue[loopVar].finished 		= NO;
 			requestQueue[loopVar].timeRemaining = NO;
 			*countSlotsOccupied  = *countSlotsOccupied +1;	/*Increment counter */
-			
-			printf("\nAdded request: %s issued at time: %llu enqueued at time %llu\n", inputBuffer.name, inputBuffer.timeIssued, requestQueue[loopVar].timeIssued);
-			printf("Row: %u Bank: %u Column: %u\n\n", requestQueue[loopVar].row, requestQueue[loopVar].bank, requestQueue[loopVar].column);
-						
+									
 			return FALSE;  /* futureRequest= FALSE. Reload the buffer with CPU request next time */
 		}
 	}
@@ -711,7 +715,6 @@ void examineQueueForCompletion(int * countSlotsOccupied)
 			{
 				requestQueue[loopVar].occupied = FALSE;      /* The slot is open for enqueue */
 				*countSlotsOccupied = *countSlotsOccupied - 1;	/* Decreament the queue counter */
-				printf("New Occupied: %d\n", *countSlotsOccupied);
 			}
 		}
 	}
@@ -765,9 +768,7 @@ int main(int argc, char **argv)
 		/* Call a function to see if any request has been completed */
 		
 		
-		printf("\nOccupied: %d\n", countSlotsOccupied);
 		addMax = ARRAY_SIZE - countSlotsOccupied + 1;
-		printf("Current addmax: %d\n", addMax);
 		examineQueueForCompletion(&countSlotsOccupied);
 		
 		/*====================================================================*/
@@ -781,7 +782,10 @@ int main(int argc, char **argv)
 				if(countSlotsOccupied == 0)
 				{
 					if(inputBuffer.timeIssued >currentCPUTick)
+					{
+						incrementTimers((inputBuffer.timeIssued + (4 - inputBuffer.timeIssued % 4)) - currentCPUTick);
 						currentCPUTick = inputBuffer.timeIssued + (4 - inputBuffer.timeIssued % 4);
+					}
 				}
 				
 				if(inputBuffer.timeIssued > currentCPUTick)

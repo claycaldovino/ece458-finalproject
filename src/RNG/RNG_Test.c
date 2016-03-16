@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#define RAND_MAX_NEW 4294967296
 #define RUNTIME 15000
 
 typedef enum {READ, WRITE, IFETCH} command;
@@ -13,7 +12,7 @@ typedef enum {READ, WRITE, IFETCH} command;
 unsigned rand_lim(unsigned limit) {
 /* return a random number between 0 and limit inclusive. */
 
-    unsigned divisor = RAND_MAX_NEW/(limit+1);
+    unsigned divisor = RAND_MAX/(limit+1);
     unsigned retval;
 
     do { 
@@ -29,7 +28,6 @@ int main()
 	int i;
 	unsigned address_lsb;
 	unsigned address_msb;	
-	unsigned timeIssued;
 	command cmd;
 
 	FILE *ofile;		/* Output file pointer */
