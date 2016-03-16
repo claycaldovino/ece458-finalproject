@@ -10,6 +10,7 @@ CL - write to data, 14 DRAM, 56 CPU cycles
 tRC - activate to precharge, 50 DRAM, 200 cycles
 tRTP - Read to Precharge delay, 32 DRAM, 8 cycles
 tCCD - Time between writes/reads, 16 DRAM, 4 CPU cycles
+tRRD - Activate to activate to different banks, 24 DRAM, 6 CPU cycles
 
 
 INPUT: 

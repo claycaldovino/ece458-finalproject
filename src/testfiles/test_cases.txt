@@ -40,7 +40,7 @@ Expected output
 1FFBB028 (000111111111101 110 11000000101 000)  Read 60 // col 5 - 1540, bank 6, row 4093* [16]
 
 
-Write over read ordering
+Write after read ordering
 
 Input
 	1FF97000 (11111111110010111000000000000)  Read 0  // col 0 (from "base addr"), row 32741 [1]
@@ -133,3 +133,8 @@ Expected output
 	All writes, in same bank, but different rows.
 
 	read before write
+
+
+000111111111100 000 11000000000 000
+000111111111100 001 11000000000 000
+000111111111100 002 11000000000 000
