@@ -739,7 +739,7 @@ int main(int argc, char **argv)
 	/* Open the file */
      if (argc != 2)
      {
-      	printf("You must enter a testfile to use, 'simulate testfile.txt'\n");
+      	printf("You must enter a testfile to use, './memoryController testfile.txt'\n");
         return -1;
       }
  		
