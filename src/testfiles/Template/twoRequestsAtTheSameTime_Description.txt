@@ -1,0 +1,20 @@
+TITLE:
+	Two requests at the same time
+
+DESCRIPTION:
+	This test is designed to test if multiple requests are issued at the same time.
+	Ideally, a CPU cannot issue multiple requests at the same time. If it does, it is
+	classified as a random error.
+
+INPUT:
+
+	0x2000D5C0	IFETCH		0
+	0x1FF96FC0	WRITE		1
+	0x2000D600	IFETCH		1
+	0x2000D5C0	IFETCH		3
+
+	Requests 2 and 3 have same CPU issue time. Based on this input file, the program should
+	crash, and report the error.
+
+EXPECTED OUTPUT:
+	Error!!! CPU  cannot issue more than 1 request at the same time

@@ -678,7 +678,7 @@ bool loadInputBuffer(FILE *fp)
 			{
 				/* CPU issued time is out of order */
 				issueTimeErrorFlag = YES;
-				printf("ERROR! CPU requests are not sequentially ordered\n");
+				printf("ERROR! CPU requests are not ordered chronologically\n");
 			}		
 				/* Two CPU Requests at the same time error */
 			else if (lastIssueTime == inputBuffer.timeIssued && countSlotsOccupied !=0)
