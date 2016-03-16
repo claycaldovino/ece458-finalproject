@@ -716,7 +716,7 @@ void examineQueueForCompletion(int * countSlotsOccupied)
 		}
 	}
 }
-/*====================================================================*/
+/*===============================================================================*/
 int main(int argc, char **argv)
 {
 	FILE *fp;								    	/* File handler */

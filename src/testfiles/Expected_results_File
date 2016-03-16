@@ -24,3 +24,4 @@ equal. This cannot happen because CPU cannot issue two commands at the same time
 Hence the program should exit immediately displaying 
 "Error!!! CPU  cannot issue more than 1 request at the same time"
 
+3) Read 

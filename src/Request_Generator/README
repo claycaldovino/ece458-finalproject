@@ -1,0 +1,13 @@
+Do the following to generate a CPU request
+
+On a terminal type ---> make clean
+This will remove all old files if they exist.
+You will get an error for the first time, if there are no
+files to remove. 
+
+Then type --> make
+This will create an executable
+
+Run the executable
+
+At the end you should see a file generated with CPU requests
